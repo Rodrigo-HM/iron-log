@@ -1,8 +1,20 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import { parseJefitCSV } from '../lib/jefit-import';
 import { exportAllData, importAllData, clearAllSessions, bulkAddSessions } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 import { useDragInput } from '../lib/useDragInput';
+import { isLoggedIn as isSpotifyLoggedIn, logout as spotifyLogout } from '../lib/spotify';
+
+const SPOTIFY_ENABLED_KEY = 'spotify_enabled';
+
+function getSpotifyEnabled() {
+  return localStorage.getItem(SPOTIFY_ENABLED_KEY) !== 'false';
+}
+
+function setSpotifyEnabled(enabled) {
+  localStorage.setItem(SPOTIFY_ENABLED_KEY, enabled ? 'true' : 'false');
+  window.dispatchEvent(new Event('spotify-settings-change'));
+}
 
 function DragNumberInput({ value, onChange, step = 1, min = 0, placeholder }) {
   const handleChange = useCallback((v) => onChange(parseFloat(v) || 0), [onChange]);
@@ -27,6 +39,30 @@ function formatDate(dateStr) {
 
 export function SettingsView({ sessions, settings, activeRoutine, onSettingsChange, onDataChange, showToast }) {
   const importRef = useRef(null);
+  const [spotifyEnabled, setSpotifyEnabledState] = useState(getSpotifyEnabled());
+  const [spotifyLogged, setSpotifyLogged] = useState(isSpotifyLoggedIn());
+
+  useEffect(() => {
+    const sync = () => {
+      setSpotifyEnabledState(getSpotifyEnabled());
+      setSpotifyLogged(isSpotifyLoggedIn());
+    };
+    window.addEventListener('spotify-settings-change', sync);
+    return () => window.removeEventListener('spotify-settings-change', sync);
+  }, []);
+
+  const toggleSpotifyEnabled = () => {
+    const next = !spotifyEnabled;
+    setSpotifyEnabled(next);
+    setSpotifyEnabledState(next);
+  };
+
+  const handleSpotifyLogout = () => {
+    spotifyLogout();
+    setSpotifyLogged(false);
+    window.dispatchEvent(new Event('spotify-settings-change'));
+    showToast('Spotify desconectado');
+  };
 
   const handleImport = () => importRef.current?.click();
 
@@ -183,6 +219,25 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
       <button className="secondary-btn danger-btn" onClick={() => supabase.auth.signOut()}>
         Cerrar sesión
       </button>
+
+      <div className="section-label" style={{ marginTop: 28 }}>Música</div>
+      <div className="setting-card">
+        <div className="setting-row">
+          <div className="setting-label">Mostrar mini-player en sesión</div>
+          <button
+            className={`toggle-switch ${spotifyEnabled ? 'on' : ''}`}
+            onClick={toggleSpotifyEnabled}
+            aria-label="Activar mini-player"
+          >
+            <span className="toggle-knob" />
+          </button>
+        </div>
+      </div>
+      {spotifyEnabled && spotifyLogged && (
+        <button className="secondary-btn danger-btn" onClick={handleSpotifyLogout}>
+          Desconectar Spotify
+        </button>
+      )}
 
       <div className="section-label" style={{ marginTop: 28 }}>Reglas de progresión</div>
       <div className="setting-card" style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--text-dim)' }}>

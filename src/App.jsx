@@ -38,7 +38,16 @@ export default function App() {
   const [routines, setRoutines] = useState([]);
   const [activeRoutine, setActiveRoutine] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [spotifyEnabled, setSpotifyEnabledState] = useState(
+    localStorage.getItem('spotify_enabled') !== 'false'
+  );
   const { toast, showToast, hideToast } = useToast();
+
+  useEffect(() => {
+    const sync = () => setSpotifyEnabledState(localStorage.getItem('spotify_enabled') !== 'false');
+    window.addEventListener('spotify-settings-change', sync);
+    return () => window.removeEventListener('spotify-settings-change', sync);
+  }, []);
 
   useEffect(() => {
     handleAuthCallback();
@@ -194,7 +203,7 @@ export default function App() {
     <>
       <Header />
       {currentView}
-      {tab === 'session' && sessionDayIndex !== null && <SpotifyMiniPlayer />}
+      {tab === 'session' && sessionDayIndex !== null && spotifyEnabled && <SpotifyMiniPlayer />}
       <TabBar active={tab} onChange={handleTabChange} />
       <Toast message={toast.message} show={toast.show} onHide={hideToast} />
     </>

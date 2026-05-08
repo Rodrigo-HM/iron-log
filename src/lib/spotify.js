@@ -143,7 +143,10 @@ async function api(path, options = {}) {
   if (res.status === 204) return { ok: true, status: 204, data: null };
   if (!res.ok) return { ok: false, status: res.status };
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = null; }
+  }
   return { ok: true, status: res.status, data };
 }
 
@@ -152,11 +155,15 @@ export async function getPlaybackState() {
   if (!r.ok || !r.data) return null;
   const t = r.data.item;
   if (!t) return null;
+  const images = t.album?.images || [];
   return {
     isPlaying: r.data.is_playing,
     title: t.name,
     artist: (t.artists || []).map(a => a.name).join(', '),
-    image: t.album?.images?.[t.album.images.length - 1]?.url ?? null,
+    image: images[0]?.url ?? null,
+    imageSmall: images[images.length - 1]?.url ?? null,
+    progressMs: r.data.progress_ms ?? 0,
+    durationMs: t.duration_ms ?? 0,
     deviceName: r.data.device?.name ?? null
   };
 }
