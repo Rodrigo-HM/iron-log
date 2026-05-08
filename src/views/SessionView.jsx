@@ -28,7 +28,7 @@ function beep({ frequency = 880, duration = 80, volume = 0.3, type = 'sine' } = 
 const DRAG_THRESHOLD = 5;
 const DRAG_STEP_PX = 20;
 
-function useDragInput({ value, onChange, step = 1, min = 0 }) {
+function useDragInput({ value, fallback = 0, onChange, step = 1, min = 0 }) {
   const touchStartY = useRef(null);
   const touchStartValue = useRef(null);
   const isDragging = useRef(false);
@@ -36,10 +36,11 @@ function useDragInput({ value, onChange, step = 1, min = 0 }) {
 
   const onTouchStart = useCallback((e) => {
     touchStartY.current = e.touches[0].clientY;
-    touchStartValue.current = parseFloat(value) || 0;
+    const parsed = parseFloat(value);
+    touchStartValue.current = isNaN(parsed) ? (parseFloat(fallback) || 0) : parsed;
     isDragging.current = false;
     accPx.current = 0;
-  }, [value]);
+  }, [value, fallback]);
 
   const onTouchMove = useCallback((e) => {
     if (touchStartY.current === null) return;
@@ -107,24 +108,26 @@ function fmtTime(sec) {
 
 function RestTimer({ seconds, onDone }) {
   const [remaining, setRemaining] = useState(seconds);
-  const intervalRef = useRef(null);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
 
   useEffect(() => {
-    setRemaining(seconds);
-  }, [seconds]);
-
-  useEffect(() => {
-    if (remaining <= 0) {
-      beep({ frequency: 1046, duration: 300, volume: 0.4 }); // Do6 — pitido largo al terminar
-      onDone?.();
-      return;
-    }
-    if (remaining <= 3) {
-      beep({ frequency: 660, duration: 60, volume: 0.25 }); // Mi5 — pitido corto de cuenta atrás
-    }
-    intervalRef.current = setInterval(() => setRemaining(r => r - 1), 1000);
-    return () => clearInterval(intervalRef.current);
-  }, [remaining, onDone]);
+    const interval = setInterval(() => {
+      setRemaining(r => {
+        if (r <= 1) {
+          clearInterval(interval);
+          beep({ frequency: 1046, duration: 300, volume: 0.4 });
+          setTimeout(() => onDoneRef.current?.(), 0);
+          return 0;
+        }
+        if (r <= 4) {
+          beep({ frequency: 660, duration: 60, volume: 0.25 });
+        }
+        return r - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const pct = Math.max(0, remaining / seconds);
   const circumference = 2 * Math.PI * 26;
@@ -241,25 +244,30 @@ function SuggestionBox({ suggestion, exDef }) {
 
 // ─── EXERCISE CARD ────────────────────────────────────────────────────────
 
-function SetRow({ set, si, label, useEffort, isActive, prev, loadType, onUpdate, onDone }) {
+function SetRow({ set, si, label, useEffort, started, isActive, prev, loadType, onUpdate, onDone }) {
+  const editable = started && isActive;
   const kgStep = DEFAULT_INCREMENT[loadType] ?? 2.5;
 
   const kgDrag = useDragInput({
     value: set.kg,
-    onChange: v => onUpdate(si, 'kg', v),
+    fallback: prev?.kg,
+    onChange: v => editable && onUpdate(si, 'kg', v),
     step: kgStep,
     min: 0,
   });
 
   const repsDrag = useDragInput({
     value: set.reps,
-    onChange: v => onUpdate(si, 'reps', v),
+    fallback: prev?.reps,
+    onChange: v => editable && onUpdate(si, 'reps', v),
     step: 1,
     min: 1,
   });
 
+  const canComplete = set.kg !== '' && set.reps !== '' && (!useEffort || set.effort);
+
   return (
-    <div className={`set-block ${set.isTopSet ? 'top-set-row' : ''}`}>
+    <div className={`set-block ${set.isTopSet ? 'top-set-row' : ''} ${!started ? 'set-locked' : !isActive ? 'set-done' : ''}`}>
       <div className="set-row">
         <span className="set-num">{label}</span>
         <input
@@ -268,8 +276,9 @@ function SetRow({ set, si, label, useEffort, isActive, prev, loadType, onUpdate,
           inputMode="decimal"
           placeholder={prev?.kg ?? '—'}
           value={set.kg}
+          disabled={!editable}
           onChange={e => onUpdate(si, 'kg', e.target.value)}
-          {...kgDrag}
+          {...(editable ? kgDrag : {})}
           style={{ touchAction: 'none' }}
         />
         <input
@@ -278,19 +287,21 @@ function SetRow({ set, si, label, useEffort, isActive, prev, loadType, onUpdate,
           inputMode="numeric"
           placeholder={prev?.reps ?? '—'}
           value={set.reps}
+          disabled={!editable}
           onChange={e => onUpdate(si, 'reps', e.target.value)}
-          {...repsDrag}
+          {...(editable ? repsDrag : {})}
           style={{ touchAction: 'none' }}
         />
         <button
           className="set-done-btn"
           onClick={onDone}
+          disabled={!editable || !canComplete}
           title="Completar serie → iniciar descanso"
         >
           ✓
         </button>
       </div>
-      {useEffort && isActive && (
+      {useEffort && isActive && started && (
         <div className="set-effort-row">
           <EffortSelector
             value={set.effort}
@@ -302,7 +313,7 @@ function SetRow({ set, si, label, useEffort, isActive, prev, loadType, onUpdate,
   );
 }
 
-function ExerciseCard({ exercise, exDef, history, lastSession, onUpdateSet, onAddSet, onRemoveSet }) {
+function ExerciseCard({ exercise, exDef, history, lastSession, started, onUpdateSet, onAddSet, onRemoveSet }) {
   const [timerSeconds, setTimerSeconds] = useState(null);
   const [timerKey, setTimerKey] = useState(0);
   const [activeSet, setActiveSet] = useState(0);
@@ -415,6 +426,7 @@ function ExerciseCard({ exercise, exDef, history, lastSession, onUpdateSet, onAd
               si={si}
               label={label}
               useEffort={useEffort}
+              started={started}
               isActive={si === activeSet}
               prev={prev}
               loadType={exDef.loadType}
@@ -424,7 +436,7 @@ function ExerciseCard({ exercise, exDef, history, lastSession, onUpdateSet, onAd
           );
         })}
 
-        {canAddSets && (
+        {canAddSets && started && (
           <div className="set-actions">
             <button className="add-set-btn" onClick={onAddSet}>+ Serie</button>
             {exercise.sets.length > 1 && (
@@ -570,6 +582,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
             exDef={exDef}
             history={history}
             lastSession={lastSession}
+            started={started}
             onUpdateSet={makeUpdateSet(i)}
             onAddSet={() => addSet(i)}
             onRemoveSet={() => removeSet(i)}

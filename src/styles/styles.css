@@ -430,6 +430,16 @@ button { font-family: inherit; }
   margin-bottom: 8px;
 }
 
+.set-block.set-locked {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.set-block.set-done {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .set-row {
   display: grid;
   grid-template-columns: 32px 1fr 1fr 32px;
