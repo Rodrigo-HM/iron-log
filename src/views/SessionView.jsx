@@ -241,7 +241,7 @@ function SuggestionBox({ suggestion, exDef }) {
 
 // ─── EXERCISE CARD ────────────────────────────────────────────────────────
 
-function SetRow({ set, si, label, useEffort, prev, loadType, onUpdate, onDone }) {
+function SetRow({ set, si, label, useEffort, isActive, prev, loadType, onUpdate, onDone }) {
   const kgStep = DEFAULT_INCREMENT[loadType] ?? 2.5;
 
   const kgDrag = useDragInput({
@@ -259,49 +259,45 @@ function SetRow({ set, si, label, useEffort, prev, loadType, onUpdate, onDone })
   });
 
   return (
-    <div className={`set-row ${useEffort ? 'with-effort' : ''} ${set.isTopSet ? 'top-set-row' : ''}`}>
-      <span className="set-num">{label}</span>
-      <input
-        type="number"
-        className={`set-input ${set.kg !== '' ? 'filled' : ''}`}
-        inputMode="decimal"
-        placeholder={prev?.kg ?? '—'}
-        value={set.kg}
-        onChange={e => onUpdate(si, 'kg', e.target.value)}
-        {...kgDrag}
-        style={{ touchAction: 'none' }}
-      />
-      <input
-        type="number"
-        className={`set-input ${set.reps !== '' ? 'filled' : ''}`}
-        inputMode="numeric"
-        placeholder={prev?.reps ?? '—'}
-        value={set.reps}
-        onChange={e => onUpdate(si, 'reps', e.target.value)}
-        {...repsDrag}
-        style={{ touchAction: 'none' }}
-      />
-      {useEffort && (
-        <div className="effort-cell">
-          <select
-            className={`effort-select effort-${set.effort ?? 'none'} ${set.effort ? 'filled' : ''} ${!set.effort && prev?.effort ? 'prev-effort' : ''}`}
-            value={set.effort ?? ''}
-            onChange={e => onUpdate(si, 'effort', e.target.value || null)}
-          >
-            <option value="">{prev?.effort ? EFFORT_LEVELS.find(l => l.value === prev.effort)?.label ?? '—' : '—'}</option>
-            {EFFORT_LEVELS.map(lvl => (
-              <option key={lvl.value} value={lvl.value}>{lvl.label}</option>
-            ))}
-          </select>
+    <div className={`set-block ${set.isTopSet ? 'top-set-row' : ''}`}>
+      <div className="set-row">
+        <span className="set-num">{label}</span>
+        <input
+          type="number"
+          className={`set-input ${set.kg !== '' ? 'filled' : ''}`}
+          inputMode="decimal"
+          placeholder={prev?.kg ?? '—'}
+          value={set.kg}
+          onChange={e => onUpdate(si, 'kg', e.target.value)}
+          {...kgDrag}
+          style={{ touchAction: 'none' }}
+        />
+        <input
+          type="number"
+          className={`set-input ${set.reps !== '' ? 'filled' : ''}`}
+          inputMode="numeric"
+          placeholder={prev?.reps ?? '—'}
+          value={set.reps}
+          onChange={e => onUpdate(si, 'reps', e.target.value)}
+          {...repsDrag}
+          style={{ touchAction: 'none' }}
+        />
+        <button
+          className="set-done-btn"
+          onClick={onDone}
+          title="Completar serie → iniciar descanso"
+        >
+          ✓
+        </button>
+      </div>
+      {useEffort && isActive && (
+        <div className="set-effort-row">
+          <EffortSelector
+            value={set.effort}
+            onChange={val => onUpdate(si, 'effort', val)}
+          />
         </div>
       )}
-      <button
-        className="set-done-btn"
-        onClick={onDone}
-        title="Completar serie → iniciar descanso"
-      >
-        ✓
-      </button>
     </div>
   );
 }
@@ -309,6 +305,7 @@ function SetRow({ set, si, label, useEffort, prev, loadType, onUpdate, onDone })
 function ExerciseCard({ exercise, exDef, history, lastSession, onUpdateSet, onAddSet, onRemoveSet }) {
   const [timerSeconds, setTimerSeconds] = useState(null);
   const [timerKey, setTimerKey] = useState(0);
+  const [activeSet, setActiveSet] = useState(0);
 
   const suggestion = useMemo(() => {
     if (history.length === 0) return null;
@@ -369,6 +366,7 @@ function ExerciseCard({ exercise, exDef, history, lastSession, onUpdateSet, onAd
 
   const handleSetDone = (si) => {
     const set = exercise.sets[si];
+    setActiveSet(si + 1);
     if (set.isTopSet) {
       startTimer(exDef.restTopToBackoff ?? 240);
     } else {
@@ -396,11 +394,10 @@ function ExerciseCard({ exercise, exDef, history, lastSession, onUpdateSet, onAd
           />
         )}
 
-        <div className={`set-row header ${useEffort ? 'with-effort' : ''}`}>
+        <div className="set-row header">
           <span></span>
           <span className="set-label">Kg</span>
           <span className="set-label">Reps</span>
-          {useEffort && <span className="set-label">Esfuerzo</span>}
           <span></span>
         </div>
 
@@ -412,26 +409,18 @@ function ExerciseCard({ exercise, exDef, history, lastSession, onUpdateSet, onAd
           const prev = lastSession?.sets?.[si];
 
           return (
-            <div key={si}>
-              <SetRow
-                set={set}
-                si={si}
-                label={label}
-                useEffort={useEffort}
-                prev={prev}
-                loadType={exDef.loadType}
-                onUpdate={handleUpdateSet}
-                onDone={() => handleSetDone(si)}
-              />
-              {isTopSet && useEffort && (
-                <div style={{ paddingLeft: 40, paddingBottom: 8 }}>
-                  <EffortSelector
-                    value={set.effort}
-                    onChange={val => handleUpdateSet(si, 'effort', val)}
-                  />
-                </div>
-              )}
-            </div>
+            <SetRow
+              key={si}
+              set={set}
+              si={si}
+              label={label}
+              useEffort={useEffort}
+              isActive={si === activeSet}
+              prev={prev}
+              loadType={exDef.loadType}
+              onUpdate={handleUpdateSet}
+              onDone={() => handleSetDone(si)}
+            />
           );
         })}
 

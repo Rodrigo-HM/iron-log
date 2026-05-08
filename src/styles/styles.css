@@ -426,12 +426,15 @@ button { font-family: inherit; }
 }
 
 /* Sets */
+.set-block {
+  margin-bottom: 8px;
+}
+
 .set-row {
   display: grid;
-  grid-template-columns: 32px 1fr 1fr 1fr;
+  grid-template-columns: 32px 1fr 1fr 32px;
   gap: 8px;
   align-items: center;
-  margin-bottom: 8px;
 }
 
 .set-num {
@@ -1000,12 +1003,13 @@ button { font-family: inherit; }
 .effort-select.filled { border-color: rgba(255, 69, 0, 0.4); }
 .effort-select.prev-effort { color: var(--text-faint); }
 
-/* Set row con columna de esfuerzo */
-.set-row.with-effort {
-  grid-template-columns: 32px 1fr 1fr 1fr 32px;
+.set-effort-row {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 4px;
 }
 
-.set-row.top-set-row .set-num {
+.set-block.top-set-row .set-num {
   color: var(--accent);
   font-weight: 700;
 }
