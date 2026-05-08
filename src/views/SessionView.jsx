@@ -433,6 +433,8 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
   }, []);
 
   const deloadInfo = useMemo(() => {
+    const lastSession = [...sessions].sort((a, b) => b.date.localeCompare(a.date))[0];
+    if (lastSession?.isDeload) return null;
     const basicEx = (day.exercises ?? []).find(e => e.scheme === 'topback');
     if (!basicEx) return null;
     const history = getExerciseHistory(sessions, basicEx.name);

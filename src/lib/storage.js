@@ -206,6 +206,20 @@ export async function exportAllData() {
 
 export async function importAllData(data) {
   if (!data.sessions) throw new Error('Formato inválido: falta "sessions"');
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (Array.isArray(data.routines) && data.routines.length > 0) {
+    await supabase.from('routines').delete().eq('user_id', user.id);
+    const rows = data.routines.map(r => ({
+      user_id: user.id,
+      name: r.name,
+      days: r.days,
+      is_active: !!r.isActive
+    }));
+    const { error } = await supabase.from('routines').insert(rows);
+    if (error) throw error;
+  }
+
   await clearAllSessions();
   await bulkAddSessions(data.sessions);
   if (data.settings) {
