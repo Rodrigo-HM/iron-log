@@ -2,6 +2,25 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { getExerciseHistory, DEFAULT_INCREMENT } from '../lib/workouts';
 import { generateSuggestion, calcBackoffWeight, EFFORT_LEVELS } from '../lib/progression';
 
+// ─── BEEP ─────────────────────────────────────────────────────────────────
+
+function beep({ frequency = 880, duration = 80, volume = 0.3, type = 'sine' } = {}) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.value = frequency;
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration / 1000);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration / 1000);
+    osc.onended = () => ctx.close();
+  } catch {}
+}
+
 // ─── DRAG INPUT HOOK ──────────────────────────────────────────────────────
 // Deslizar arriba/abajo sobre un input numérico incrementa/decrementa el valor.
 // tap normal → abre teclado. Movimiento ≥ DRAG_THRESHOLD px → modo drag.
@@ -95,7 +114,14 @@ function RestTimer({ seconds, onDone }) {
   }, [seconds]);
 
   useEffect(() => {
-    if (remaining <= 0) { onDone?.(); return; }
+    if (remaining <= 0) {
+      beep({ frequency: 1046, duration: 300, volume: 0.4 }); // Do6 — pitido largo al terminar
+      onDone?.();
+      return;
+    }
+    if (remaining <= 3) {
+      beep({ frequency: 660, duration: 60, volume: 0.25 }); // Mi5 — pitido corto de cuenta atrás
+    }
     intervalRef.current = setInterval(() => setRemaining(r => r - 1), 1000);
     return () => clearInterval(intervalRef.current);
   }, [remaining, onDone]);
