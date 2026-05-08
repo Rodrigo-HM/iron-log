@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { getExerciseHistory, DEFAULT_INCREMENT } from '../lib/workouts';
-import { generateSuggestion, calcBackoffWeight, EFFORT_LEVELS } from '../lib/progression';
+import { generateSuggestion, calcBackoffWeight, EFFORT_LEVELS, detectDeload } from '../lib/progression';
 import { useDragInput } from '../lib/useDragInput';
 
 // ─── BEEP ─────────────────────────────────────────────────────────────────
@@ -157,12 +157,6 @@ function SuggestionBox({ suggestion, exDef }) {
     const action = t?.action ?? 'maintain';
     return (
       <>
-        {suggestion.deload?.needed && (
-          <div className="deload-alert">
-            ⚠️ Deload sugerido — {suggestion.deload.reason}
-            <span className="deload-hint"> Usa 80% del peso habitual, −1 serie por ejercicio.</span>
-          </div>
-        )}
         <div className={`suggestion ${action}`}>
           <div className="suggestion-label">SUGERENCIA</div>
           {t && (
@@ -271,13 +265,13 @@ function SetRow({ set, si, label, useEffort, started, isActive, prev, loadType, 
   );
 }
 
-function ExerciseCard({ exercise, exDef, history, lastSession, started, expanded, isActive, onToggle, timerSeconds, timerKey, onSetDone, onTimerDone, onUpdateSet, onAddSet, onRemoveSet }) {
+function ExerciseCard({ exercise, exDef, history, lastSession, started, expanded, isActive, isDeloadSession, onToggle, timerSeconds, timerKey, onSetDone, onTimerDone, onUpdateSet, onAddSet, onRemoveSet }) {
   const [activeSet, setActiveSet] = useState(0);
 
   const suggestion = useMemo(() => {
     if (history.length === 0) return null;
-    return generateSuggestion(history, exDef);
-  }, [history, exDef]);
+    return generateSuggestion(history, exDef, { applyDeload: isDeloadSession });
+  }, [history, exDef, isDeloadSession]);
 
   const useEffort = exercise.type !== 'iso';
 
@@ -430,6 +424,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
   const [elapsed, setElapsed] = useState(0);
   const [timerState, setTimerState] = useState({ seconds: null, key: 0, exIdx: null });
   const [expandedIdx, setExpandedIdx] = useState(0);
+  const [deloadPrompt, setDeloadPrompt] = useState(null);
   const startTimeRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -437,12 +432,41 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
     return () => clearInterval(intervalRef.current);
   }, []);
 
-  const handleStart = () => {
+  const deloadInfo = useMemo(() => {
+    const basicEx = (day.exercises ?? []).find(e => e.scheme === 'topback');
+    if (!basicEx) return null;
+    const history = getExerciseHistory(sessions, basicEx.name);
+    const result = detectDeload(history);
+    return result.needed ? { reason: result.reason, exerciseName: basicEx.name } : null;
+  }, [sessions, day]);
+
+  const beginSession = (isDeload) => {
+    if (isDeload) {
+      setSession(prev => ({ ...prev, isDeload: true }));
+    }
     setStarted(true);
     startTimeRef.current = Date.now();
     intervalRef.current = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 1000);
+  };
+
+  const handleStart = () => {
+    if (deloadInfo && !existingSession) {
+      setDeloadPrompt(deloadInfo);
+      return;
+    }
+    beginSession(false);
+  };
+
+  const handleDeloadConfirm = () => {
+    setDeloadPrompt(null);
+    beginSession(true);
+  };
+
+  const handleDeloadDecline = () => {
+    setDeloadPrompt(null);
+    beginSession(false);
   };
 
   const updateSet = useCallback((exIdx, setIdx, field, value) => {
@@ -550,10 +574,34 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
         )}
       </div>
 
+      {started && session.isDeload && (
+        <div className="deload-banner">
+          🪶 Sesión de deload — 80% del peso, sin llegar al fallo. No afecta a tus próximas sesiones.
+        </div>
+      )}
+
       {!started && (
         <button className="start-session-btn" onClick={handleStart}>
           Iniciar sesión
         </button>
+      )}
+
+      {deloadPrompt && (
+        <div className="deload-modal-overlay" onClick={handleDeloadDecline}>
+          <div className="deload-modal" onClick={e => e.stopPropagation()}>
+            <div className="deload-modal-title">Deload recomendado</div>
+            <div className="deload-modal-text">
+              {deloadPrompt.reason} Te recomendamos hacer hoy una sesión más ligera (80% del peso, sin llegar al fallo).
+            </div>
+            <div className="deload-modal-text" style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 8 }}>
+              No afectará a tus próximas sesiones — la app retomará tu peso anterior.
+            </div>
+            <div className="deload-modal-buttons">
+              <button className="secondary-btn" onClick={handleDeloadDecline}>No, entreno normal</button>
+              <button className="primary-btn" onClick={handleDeloadConfirm}>Sí, hacer deload</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {session.exercises.map((ex, i) => {
@@ -568,6 +616,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
             history={history}
             lastSession={lastSession}
             started={started}
+            isDeloadSession={!!session.isDeload}
             expanded={expandedIdx === i}
             isActive={timerState.exIdx === i || (timerState.exIdx === null && expandedIdx === i)}
             onToggle={() => setExpandedIdx(expandedIdx === i ? -1 : i)}

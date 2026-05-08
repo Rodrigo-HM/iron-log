@@ -334,9 +334,10 @@ export function getLastWorkoutDate(sessions, dayIndex) {
   return matches.length > 0 ? matches[0].date : null;
 }
 
-export function getExerciseHistory(sessions, exerciseName) {
+export function getExerciseHistory(sessions, exerciseName, { includeDeloads = false } = {}) {
   const history = [];
   for (const session of sessions) {
+    if (!includeDeloads && session.isDeload) continue;
     for (const ex of session.exercises) {
       if (ex.name === exerciseName) {
         history.push({

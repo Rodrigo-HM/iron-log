@@ -384,20 +384,20 @@ export function detectDeload(history) {
  * @param {Object} exDef     - definición del ejercicio en WORKOUTS
  * @returns {Object|null}
  */
-export function generateSuggestion(history, exDef) {
+export function generateSuggestion(history, exDef, { applyDeload = false } = {}) {
   if (!history || history.length === 0) return null;
 
   if (exDef.scheme === 'topback') {
     let topSet = suggestTopSet(history, exDef);
     let backOffs = suggestBackOffs(history, exDef, topSet);
     const deload = detectDeload(history);
-    if (deload.needed && topSet) {
+    if (applyDeload && topSet) {
       const deloadKg = round(topSet.weight * 0.8);
       topSet = {
         ...topSet,
         weight: deloadKg,
         action: 'decrease',
-        reason: `Deload: 80% del peso habitual. ${deload.reason}`
+        reason: 'Sesión de deload: 80% del peso habitual, sin llegar al fallo.'
       };
       if (backOffs) {
         backOffs = {
@@ -411,9 +411,18 @@ export function generateSuggestion(history, exDef) {
     return { type: 'topback', topSet, backOffs, deload };
   }
 
-  if (exDef.type === 'compound') {
-    return { type: 'simple', sets: suggestCompound(history, exDef) };
+  let sets = exDef.type === 'compound'
+    ? suggestCompound(history, exDef)
+    : suggestIsolation(history, exDef);
+
+  if (applyDeload && sets) {
+    sets = {
+      ...sets,
+      weight: round(sets.weight * 0.8),
+      action: 'decrease',
+      reason: 'Sesión de deload: 80% del peso habitual, sin llegar al fallo.'
+    };
   }
 
-  return { type: 'simple', sets: suggestIsolation(history, exDef) };
+  return { type: 'simple', sets };
 }
