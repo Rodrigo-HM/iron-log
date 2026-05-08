@@ -151,7 +151,11 @@ function RestTimer({ seconds, onDone }) {
           {fmtTime(remaining)}
         </text>
       </svg>
-      <button className="timer-skip-btn" onClick={onDone}>Saltar</button>
+      <div className="timer-controls">
+        <button className="timer-adj-btn" onClick={() => setRemaining(r => Math.max(0, r - 30))}>−30s</button>
+        <button className="timer-adj-btn" onClick={() => setRemaining(r => r + 30)}>+30s</button>
+        <button className="timer-skip-btn" onClick={onDone}>Saltar</button>
+      </div>
     </div>
   );
 }

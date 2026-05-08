@@ -1070,6 +1070,27 @@ button { font-family: inherit; }
   margin-bottom: 12px;
 }
 
+.timer-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.timer-adj-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 6px 10px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.timer-adj-btn:active { background: var(--surface); }
+
 .timer-skip-btn {
   background: none;
   border: 1px solid var(--border);
@@ -1081,6 +1102,7 @@ button { font-family: inherit; }
   letter-spacing: 0.15em;
   text-transform: uppercase;
   cursor: pointer;
+  margin-left: auto;
 }
 
 .timer-skip-btn:active { background: var(--surface); }
