@@ -1024,6 +1024,11 @@ button { font-family: inherit; }
   font-weight: 700;
 }
 
+@keyframes pulse-ready {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 40%, transparent); }
+  50% { opacity: 0.75; box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 0%, transparent); }
+}
+
 /* Botón ✓ al completar una serie */
 .set-done-btn {
   background: none;
@@ -1039,6 +1044,12 @@ button { font-family: inherit; }
   justify-content: center;
   padding: 0;
   flex-shrink: 0;
+}
+
+.set-done-btn:not(:disabled).ready {
+  border-color: var(--green);
+  color: var(--green);
+  animation: pulse-ready 1.6s ease-in-out infinite;
 }
 
 .set-done-btn:active {

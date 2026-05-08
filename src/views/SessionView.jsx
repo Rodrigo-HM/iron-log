@@ -293,7 +293,7 @@ function SetRow({ set, si, label, useEffort, started, isActive, prev, loadType, 
           style={{ touchAction: 'none' }}
         />
         <button
-          className="set-done-btn"
+          className={`set-done-btn${editable && canComplete ? ' ready' : ''}`}
           onClick={onDone}
           disabled={!editable || !canComplete}
           title="Completar serie → iniciar descanso"
