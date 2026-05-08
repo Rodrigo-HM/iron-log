@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { saveRoutine, deleteRoutine, setActiveRoutine } from '../lib/storage';
 import { WORKOUTS } from '../lib/workouts';
+import { searchExercises } from '../lib/exercise-library';
 
 const LOAD_TYPES = [
   { value: 'bar', label: 'Barra' },
@@ -14,7 +15,9 @@ const EXERCISE_TYPES = [
   { value: 'iso', label: 'Aislamiento' }
 ];
 
-// Rutina por defecto basada en WORKOUTS hardcodeado (para "crear desde plantilla")
+const TYPE_LABEL = { basic: 'Básico', compound: 'Compuesto', iso: 'Aislamiento' };
+const LOAD_LABEL = { bar: 'Barra', dumbbell: 'Mancuernas', machine: 'Máquina' };
+
 function buildDefaultRoutine() {
   return {
     name: 'Mi rutina',
@@ -37,10 +40,7 @@ function buildDefaultRoutine() {
 }
 
 function emptyRoutine() {
-  return {
-    name: '',
-    days: [emptyDay()]
-  };
+  return { name: '', days: [emptyDay()] };
 }
 
 function emptyDay() {
@@ -51,20 +51,102 @@ function emptyExercise() {
   return { name: '', type: 'compound', loadType: 'bar', sets: 3, reps: [8, 10], scheme: null };
 }
 
+// ─── EXERCISE PICKER MODAL ───────────────────────────────────────────────
+
+function ExercisePicker({ onSelect, onCancel }) {
+  const [query, setQuery] = useState('');
+  const results = searchExercises(query);
+
+  const sections = [
+    { key: 'basic', label: 'Básico' },
+    { key: 'compound', label: 'Compuesto' },
+    { key: 'iso', label: 'Aislamiento' }
+  ];
+
+  return (
+    <div className="picker-overlay" onClick={onCancel}>
+      <div className="picker-sheet" onClick={e => e.stopPropagation()}>
+        <div className="picker-header">
+          <input
+            className="picker-search"
+            placeholder="Buscar ejercicio..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            autoFocus
+          />
+          <button className="picker-cancel" onClick={onCancel}>Cancelar</button>
+        </div>
+        <div className="picker-list">
+          {sections.map(section => {
+            const items = results.filter(e => e.type === section.key);
+            if (items.length === 0) return null;
+            return (
+              <div key={section.key}>
+                <div className="picker-section-label">{section.label}</div>
+                {items.map(ex => (
+                  <button key={ex.name} className="picker-item" onClick={() => onSelect(ex)}>
+                    <span className="picker-item-name">{ex.name}</span>
+                    <span className="picker-item-meta">{LOAD_LABEL[ex.loadType]}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+          <button className="picker-custom-btn" onClick={() => onSelect(null)}>
+            + Nombre personalizado
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── EXERCISE EDITOR ─────────────────────────────────────────────────────
 
 function ExerciseEditor({ ex, onChange, onRemove }) {
+  const [showPicker, setShowPicker] = useState(false);
   const isBasic = ex.type === 'basic';
+
+  const handlePickerSelect = (libraryEx) => {
+    setShowPicker(false);
+    if (!libraryEx) return; // personalizado: solo cierra picker, deja nombre vacío para escribir
+    onChange({
+      ...ex,
+      name: libraryEx.name,
+      type: libraryEx.type,
+      loadType: libraryEx.loadType,
+      scheme: libraryEx.scheme ?? null,
+      sets: libraryEx.sets ?? 3,
+      reps: libraryEx.reps ?? [8, 10],
+      topReps: libraryEx.topReps ?? null,
+      backReps: libraryEx.backReps ?? null,
+      backSets: libraryEx.backSets ?? null,
+    });
+  };
 
   return (
     <div className="routine-exercise-row">
+      {showPicker && (
+        <ExercisePicker
+          onSelect={handlePickerSelect}
+          onCancel={() => setShowPicker(false)}
+        />
+      )}
+
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+        <button
+          className="remove-set-btn"
+          style={{ width: 32, flexShrink: 0, fontSize: 15 }}
+          title="Elegir de la biblioteca"
+          onClick={() => setShowPicker(true)}
+        >≡</button>
         <input
           className="setting-input"
           style={{ flex: 1, width: 'auto', textAlign: 'left', padding: '8px 10px' }}
           placeholder="Nombre del ejercicio"
           value={ex.name}
           onChange={e => onChange({ ...ex, name: e.target.value })}
+          onFocus={() => { if (!ex.name) setShowPicker(true); }}
         />
         <button className="remove-set-btn" style={{ width: 32, flexShrink: 0 }} onClick={onRemove}>×</button>
       </div>
@@ -277,7 +359,7 @@ function RoutineEditor({ routine, onSave, onCancel, saving }) {
 // ─── ROUTINES LIST ────────────────────────────────────────────────────────
 
 export function RoutinesView({ routines, activeRoutineId, onRoutinesChange, showToast }) {
-  const [editing, setEditing] = useState(null); // null | routine object
+  const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async (draft) => {
@@ -314,13 +396,8 @@ export function RoutinesView({ routines, activeRoutineId, onRoutinesChange, show
     }
   };
 
-  const handleNewFromTemplate = () => {
-    setEditing(buildDefaultRoutine());
-  };
-
-  const handleNewBlank = () => {
-    setEditing(emptyRoutine());
-  };
+  const handleNewFromTemplate = () => setEditing(buildDefaultRoutine());
+  const handleNewBlank = () => setEditing(emptyRoutine());
 
   if (editing !== null) {
     return (

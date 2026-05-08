@@ -1,6 +1,52 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { getExerciseHistory } from '../lib/workouts';
+import { getExerciseHistory, DEFAULT_INCREMENT } from '../lib/workouts';
 import { generateSuggestion, calcBackoffWeight, EFFORT_LEVELS } from '../lib/progression';
+
+// ─── DRAG INPUT HOOK ──────────────────────────────────────────────────────
+// Deslizar arriba/abajo sobre un input numérico incrementa/decrementa el valor.
+// tap normal → abre teclado. Movimiento ≥ DRAG_THRESHOLD px → modo drag.
+
+const DRAG_THRESHOLD = 5;
+const DRAG_STEP_PX = 20;
+
+function useDragInput({ value, onChange, step = 1, min = 0 }) {
+  const touchStartY = useRef(null);
+  const touchStartValue = useRef(null);
+  const isDragging = useRef(false);
+  const accPx = useRef(0);
+
+  const onTouchStart = useCallback((e) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchStartValue.current = parseFloat(value) || 0;
+    isDragging.current = false;
+    accPx.current = 0;
+  }, [value]);
+
+  const onTouchMove = useCallback((e) => {
+    if (touchStartY.current === null) return;
+    const dy = touchStartY.current - e.touches[0].clientY; // positivo = arriba = aumentar
+    if (!isDragging.current && Math.abs(dy) >= DRAG_THRESHOLD) {
+      isDragging.current = true;
+    }
+    if (!isDragging.current) return;
+    e.preventDefault();
+    accPx.current = dy;
+    const steps = Math.floor(Math.abs(accPx.current) / DRAG_STEP_PX) * Math.sign(accPx.current);
+    const newVal = Math.max(min, Math.round((touchStartValue.current + steps * step) / step) * step);
+    // Redondear a 2 decimales para evitar artefactos de punto flotante
+    onChange(String(Math.round(newVal * 100) / 100));
+  }, [onChange, step, min]);
+
+  const onTouchEnd = useCallback((e) => {
+    if (isDragging.current) {
+      e.preventDefault(); // evita que abra el teclado si fue drag
+    }
+    touchStartY.current = null;
+    isDragging.current = false;
+  }, []);
+
+  return { onTouchStart, onTouchMove, onTouchEnd };
+}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────
 
@@ -102,18 +148,18 @@ function EffortSelector({ value, onChange }) {
 
 // ─── SUGGESTION BOX ──────────────────────────────────────────────────────
 
+function ExerciseTarget({ exDef }) {
+  const label = exDef.scheme === 'topback'
+    ? `Top ${exDef.topReps[0]}-${exDef.topReps[1]} · Back ${exDef.backReps[0]}-${exDef.backReps[1]} × ${exDef.backSets} · Descanso ${Math.round((exDef.restBetweenSets ?? 150) / 60)}min`
+    : `${exDef.sets ?? '?'} × ${exDef.reps[0]}-${exDef.reps[1]} reps · Descanso ${Math.round((exDef.restBetweenSets ?? 120) / 60)}min`;
+  return <div className="exercise-target">{label}</div>;
+}
+
 function SuggestionBox({ suggestion, exDef }) {
   if (!suggestion) {
-    let info = '';
-    if (exDef.scheme === 'topback') {
-      info = `Top: ${exDef.topReps[0]}-${exDef.topReps[1]} · Back: ${exDef.backReps[0]}-${exDef.backReps[1]} × ${exDef.backSets}`;
-    } else {
-      info = `${exDef.sets ?? '?'} series × ${exDef.reps[0]}-${exDef.reps[1]} reps`;
-    }
     return (
       <div className="suggestion">
-        <div className="suggestion-label">{info}</div>
-        <div className="suggestion-text">Sin historial. Empieza con un peso conservador.</div>
+        <div className="suggestion-text">Sin historial — empieza conservador.</div>
       </div>
     );
   }
@@ -169,7 +215,72 @@ function SuggestionBox({ suggestion, exDef }) {
 
 // ─── EXERCISE CARD ────────────────────────────────────────────────────────
 
-function ExerciseCard({ exercise, exDef, history, onUpdateSet, onAddSet, onRemoveSet }) {
+function SetRow({ set, si, label, useEffort, prev, loadType, onUpdate, onDone }) {
+  const kgStep = DEFAULT_INCREMENT[loadType] ?? 2.5;
+
+  const kgDrag = useDragInput({
+    value: set.kg,
+    onChange: v => onUpdate(si, 'kg', v),
+    step: kgStep,
+    min: 0,
+  });
+
+  const repsDrag = useDragInput({
+    value: set.reps,
+    onChange: v => onUpdate(si, 'reps', v),
+    step: 1,
+    min: 1,
+  });
+
+  return (
+    <div className={`set-row ${useEffort ? 'with-effort' : ''} ${set.isTopSet ? 'top-set-row' : ''}`}>
+      <span className="set-num">{label}</span>
+      <input
+        type="number"
+        className={`set-input ${set.kg !== '' ? 'filled' : ''}`}
+        inputMode="decimal"
+        placeholder={prev?.kg ?? '—'}
+        value={set.kg}
+        onChange={e => onUpdate(si, 'kg', e.target.value)}
+        {...kgDrag}
+        style={{ touchAction: 'none' }}
+      />
+      <input
+        type="number"
+        className={`set-input ${set.reps !== '' ? 'filled' : ''}`}
+        inputMode="numeric"
+        placeholder={prev?.reps ?? '—'}
+        value={set.reps}
+        onChange={e => onUpdate(si, 'reps', e.target.value)}
+        {...repsDrag}
+        style={{ touchAction: 'none' }}
+      />
+      {useEffort && (
+        <div className="effort-cell">
+          <select
+            className={`effort-select effort-${set.effort ?? 'none'} ${set.effort ? 'filled' : ''} ${!set.effort && prev?.effort ? 'prev-effort' : ''}`}
+            value={set.effort ?? ''}
+            onChange={e => onUpdate(si, 'effort', e.target.value || null)}
+          >
+            <option value="">{prev?.effort ? EFFORT_LEVELS.find(l => l.value === prev.effort)?.label ?? '—' : '—'}</option>
+            {EFFORT_LEVELS.map(lvl => (
+              <option key={lvl.value} value={lvl.value}>{lvl.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      <button
+        className="set-done-btn"
+        onClick={onDone}
+        title="Completar serie → iniciar descanso"
+      >
+        ✓
+      </button>
+    </div>
+  );
+}
+
+function ExerciseCard({ exercise, exDef, history, lastSession, onUpdateSet, onAddSet, onRemoveSet }) {
   const [timerSeconds, setTimerSeconds] = useState(null);
   const [timerKey, setTimerKey] = useState(0);
 
@@ -183,11 +294,9 @@ function ExerciseCard({ exercise, exDef, history, onUpdateSet, onAddSet, onRemov
   const tagText  = exercise.type === 'basic' ? 'BÁSICO' : exercise.type === 'compound' ? 'COMPUESTO' : 'AISLAMIENTO';
   const tagClass = exercise.type === 'basic' ? 'tag-basic' : exercise.type === 'compound' ? 'tag-comp' : 'tag-iso';
 
-  // Cuando cambia el kg del top set recalcular los back offs automáticamente
   const handleUpdateSet = useCallback((si, field, value) => {
     onUpdateSet(si, field, value);
 
-    // Si cambió el kg del top set → propagar a back offs
     if (field === 'kg' && exercise.sets[si]?.isTopSet) {
       const topKg = parseFloat(value);
       const effort = exercise.sets[si]?.effort;
@@ -201,7 +310,6 @@ function ExerciseCard({ exercise, exDef, history, onUpdateSet, onAddSet, onRemov
       }
     }
 
-    // Si cambió el esfuerzo del top set → recalcular peso de back offs
     if (field === 'effort' && exercise.sets[si]?.isTopSet) {
       const topKg = parseFloat(exercise.sets[si]?.kg);
       if (!isNaN(topKg) && value) {
@@ -214,7 +322,6 @@ function ExerciseCard({ exercise, exDef, history, onUpdateSet, onAddSet, onRemov
       }
     }
 
-    // Ajuste en tiempo real: si el back off 1 salió 💀 → bajar 2.5kg en back offs 2 y 3
     if (field === 'effort' && exercise.sets[si]?.isBackOff) {
       const backoffSets = exercise.sets.map((s, idx) => ({ ...s, idx })).filter(s => s.isBackOff);
       const isFirstBackoff = backoffSets[0]?.idx === si;
@@ -252,6 +359,7 @@ function ExerciseCard({ exercise, exDef, history, onUpdateSet, onAddSet, onRemov
         <span className={`exercise-tag ${tagClass}`}>{tagText}</span>
       </div>
       <div className="exercise-body">
+        <ExerciseTarget exDef={exDef} />
         <SuggestionBox suggestion={suggestion} exDef={exDef} />
 
         {timerSeconds !== null && (
@@ -262,7 +370,6 @@ function ExerciseCard({ exercise, exDef, history, onUpdateSet, onAddSet, onRemov
           />
         )}
 
-        {/* Cabecera de columnas */}
         <div className={`set-row header ${useEffort ? 'with-effort' : ''}`}>
           <span></span>
           <span className="set-label">Kg</span>
@@ -276,51 +383,20 @@ function ExerciseCard({ exercise, exDef, history, onUpdateSet, onAddSet, onRemov
           const isBackOff = set.isBackOff;
           const backoffIdx = exercise.sets.filter((s, idx) => s.isBackOff && idx <= si).length;
           const label = isTopSet ? 'TOP' : isBackOff ? `B${backoffIdx}` : si + 1;
+          const prev = lastSession?.sets?.[si];
 
           return (
             <div key={si}>
-              <div className={`set-row ${useEffort ? 'with-effort' : ''} ${isTopSet ? 'top-set-row' : ''}`}>
-                <span className="set-num">{label}</span>
-                <input
-                  type="number"
-                  className="set-input"
-                  inputMode="decimal"
-                  placeholder="—"
-                  value={set.kg}
-                  onChange={e => handleUpdateSet(si, 'kg', e.target.value)}
-                />
-                <input
-                  type="number"
-                  className="set-input"
-                  inputMode="numeric"
-                  placeholder="—"
-                  value={set.reps}
-                  onChange={e => handleUpdateSet(si, 'reps', e.target.value)}
-                />
-                {useEffort && (
-                  <div className="effort-cell">
-                    <select
-                      className={`effort-select effort-${set.effort ?? 'none'}`}
-                      value={set.effort ?? ''}
-                      onChange={e => handleUpdateSet(si, 'effort', e.target.value || null)}
-                    >
-                      <option value="">—</option>
-                      {EFFORT_LEVELS.map(lvl => (
-                        <option key={lvl.value} value={lvl.value}>{lvl.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <button
-                  className="set-done-btn"
-                  onClick={() => handleSetDone(si)}
-                  title="Completar serie → iniciar descanso"
-                >
-                  ✓
-                </button>
-              </div>
-
-              {/* Esfuerzo expandido para básicos: botones grandes bajo el top set */}
+              <SetRow
+                set={set}
+                si={si}
+                label={label}
+                useEffort={useEffort}
+                prev={prev}
+                loadType={exDef.loadType}
+                onUpdate={handleUpdateSet}
+                onDone={() => handleSetDone(si)}
+              />
               {isTopSet && useEffort && (
                 <div style={{ paddingLeft: 40, paddingBottom: 8 }}>
                   <EffortSelector
@@ -352,6 +428,22 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
   const [session, setSession] = useState(() =>
     existingSession ? JSON.parse(JSON.stringify(existingSession)) : buildEmptySession(day, dayIndex)
   );
+  const [started, setStarted] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const startTimeRef = useRef(null);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    return () => clearInterval(intervalRef.current);
+  }, []);
+
+  const handleStart = () => {
+    setStarted(true);
+    startTimeRef.current = Date.now();
+    intervalRef.current = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+  };
 
   const updateSet = useCallback((exIdx, setIdx, field, value) => {
     setSession(prev => {
@@ -361,7 +453,6 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
     });
   }, []);
 
-  // Versión que permite propagar cambios (back off automático)
   const makeUpdateSet = (exIdx) => (setIdx, field, value) => {
     setSession(prev => {
       const copy = JSON.parse(JSON.stringify(prev));
@@ -370,7 +461,6 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
       const ex = copy.exercises[exIdx];
       const set = ex.sets[setIdx];
 
-      // Propagar kg del top set a back offs si cambia kg o esfuerzo
       if ((field === 'kg' || field === 'effort') && set.isTopSet) {
         const topKg = parseFloat(field === 'kg' ? value : set.kg);
         const effort = field === 'effort' ? value : set.effort;
@@ -384,7 +474,6 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
         }
       }
 
-      // Back off 1 sale 💀 → bajar 2.5kg en back offs siguientes
       if (field === 'effort' && set.isBackOff) {
         const backoffSets = ex.sets.map((s, idx) => ({ ...s, idx })).filter(s => s.isBackOff);
         const isFirstBackoff = backoffSets[0]?.idx === setIdx;
@@ -425,6 +514,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
   };
 
   const handleSave = () => {
+    clearInterval(intervalRef.current);
     const filtered = JSON.parse(JSON.stringify(session));
     filtered.exercises = filtered.exercises
       .map(ex => ({ ...ex, sets: ex.sets.filter(s => s.kg !== '' && s.reps !== '') }))
@@ -434,6 +524,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
       onSave(null, 'Añade al menos una serie con datos');
       return;
     }
+    filtered.durationSeconds = started ? elapsed : null;
     onSave(filtered);
   };
 
@@ -442,17 +533,28 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
       <div className="session-header">
         <button className="back-btn" onClick={onBack}>← Atrás</button>
         <div className="session-title">{day.name}</div>
+        {started && (
+          <div className="session-chrono">{fmtTime(elapsed)}</div>
+        )}
       </div>
+
+      {!started && (
+        <button className="start-session-btn" onClick={handleStart}>
+          Iniciar sesión
+        </button>
+      )}
 
       {session.exercises.map((ex, i) => {
         const exDef = (day.exercises ?? []).find(d => d.name === ex.name) ?? day.exercises[i];
         const history = getExerciseHistory(sessions, ex.name);
+        const lastSession = history.length > 0 ? history[0] : null;
         return (
           <ExerciseCard
             key={i}
             exercise={ex}
             exDef={exDef}
             history={history}
+            lastSession={lastSession}
             onUpdateSet={makeUpdateSet(i)}
             onAddSet={() => addSet(i)}
             onRemoveSet={() => removeSet(i)}

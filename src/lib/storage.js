@@ -14,7 +14,8 @@ export async function getAllSessions() {
     id: row.id,
     date: row.date,
     workoutId: row.workout_id,
-    exercises: row.exercises
+    exercises: row.exercises,
+    durationSeconds: row.duration_seconds ?? null
   }));
 }
 
@@ -26,7 +27,7 @@ export async function saveSession(session) {
   if (existing) {
     const { error } = await supabase
       .from('sessions')
-      .update({ exercises: session.exercises })
+      .update({ exercises: session.exercises, duration_seconds: session.durationSeconds ?? null })
       .eq('id', existing.id);
     if (error) throw error;
   } else {
@@ -36,7 +37,8 @@ export async function saveSession(session) {
         user_id: user.id,
         workout_id: session.workoutId,
         date: session.date,
-        exercises: session.exercises
+        exercises: session.exercises,
+        duration_seconds: session.durationSeconds ?? null
       });
     if (error) throw error;
   }
@@ -55,7 +57,8 @@ export async function getSession(date, workoutId) {
     id: data.id,
     date: data.date,
     workoutId: data.workout_id,
-    exercises: data.exercises
+    exercises: data.exercises,
+    durationSeconds: data.duration_seconds ?? null
   };
 }
 

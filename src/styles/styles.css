@@ -293,6 +293,44 @@ button { font-family: inherit; }
   font-size: 28px;
   letter-spacing: 0.02em;
   line-height: 1;
+  flex: 1;
+  text-align: center;
+}
+
+.session-chrono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  min-width: 52px;
+  text-align: right;
+}
+
+.start-session-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 20px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.start-session-btn:active {
+  background: var(--accent-dim);
+}
+
+.exercise-target {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
 }
 
 /* Exercise card */
@@ -424,6 +462,16 @@ button { font-family: inherit; }
   border-radius: 3px;
   width: 100%;
   -moz-appearance: textfield;
+}
+
+.set-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+.set-input.filled {
+  color: var(--accent);
+  border-color: rgba(255, 69, 0, 0.4);
 }
 
 .set-input::-webkit-outer-spin-button,
@@ -782,6 +830,127 @@ button { font-family: inherit; }
   margin-bottom: 4px;
 }
 
+/* ─── EXERCISE PICKER MODAL ──────────────────────────────────────── */
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.picker-sheet {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 16px 16px 0 0;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.picker-search {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 9px 12px;
+  outline: none;
+}
+
+.picker-search:focus {
+  border-color: var(--accent);
+}
+
+.picker-cancel {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 2px;
+  flex-shrink: 0;
+}
+
+.picker-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.picker-section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 10px 16px 4px;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  gap: 10px;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  width: 100%;
+  text-align: left;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.picker-item:active {
+  background: var(--surface-2);
+}
+
+.picker-item-name {
+  font-size: 14px;
+}
+
+.picker-item-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.picker-custom-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  width: 100%;
+  text-align: left;
+}
+
 /* ─── EFFORT SELECTOR ─────────────────────────────────────────────── */
 .effort-selector {
   display: flex;
@@ -827,6 +996,9 @@ button { font-family: inherit; }
 .effort-select.effort-good   { border-color: #60a5fa; color: #60a5fa; }
 .effort-select.effort-hard   { border-color: #fbbf24; color: #fbbf24; }
 .effort-select.effort-limit  { border-color: #ef4444; color: #ef4444; }
+
+.effort-select.filled { border-color: rgba(255, 69, 0, 0.4); }
+.effort-select.prev-effort { color: var(--text-faint); }
 
 /* Set row con columna de esfuerzo */
 .set-row.with-effort {
