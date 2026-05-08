@@ -8,6 +8,8 @@ import { HistoryView } from './views/HistoryView';
 import { SettingsView } from './views/SettingsView';
 import { RoutinesView } from './views/RoutinesView';
 import { LoginView } from './views/LoginView';
+import { SpotifyMiniPlayer } from './components/SpotifyMiniPlayer';
+import { handleAuthCallback } from './lib/spotify';
 import { supabase } from './lib/supabase';
 import {
   getAllSessions,
@@ -39,6 +41,7 @@ export default function App() {
   const { toast, showToast, hideToast } = useToast();
 
   useEffect(() => {
+    handleAuthCallback();
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
@@ -191,6 +194,7 @@ export default function App() {
     <>
       <Header />
       {currentView}
+      {tab === 'session' && sessionDayIndex !== null && <SpotifyMiniPlayer />}
       <TabBar active={tab} onChange={handleTabChange} />
       <Toast message={toast.message} show={toast.show} onHide={hideToast} />
     </>
