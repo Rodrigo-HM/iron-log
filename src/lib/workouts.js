@@ -1,18 +1,9 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- *   WORKOUT DEFINITIONS
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * Los 5 entrenos en SECUENCIA. No están atados a días de la semana.
- * El orden recomendado es 1 → 2 → 3 → 4 → 5 → 1 → ...
- * pero puedes saltarte uno o cambiar el orden cuando quieras.
- *
- * Tipos:
- *   - basic:    Top set + back offs. Reglas RPE.
- *   - compound: 3-4 series cerca del fallo (RIR 0-1).
- *   - iso:      3 series al fallo, rango más alto.
- * ═══════════════════════════════════════════════════════════════════════════
- */
+// Tipos de carga — determinan el incremento por defecto
+// 'bar' → +2.5kg | 'dumbbell' → +2kg | 'machine' → +5kg (editable)
+//
+// Descansos en segundos:
+//   restTopToBackoff: entre top set y primer back off
+//   restBetweenSets:  entre series del mismo ejercicio
 
 export const WORKOUTS = {
   1: {
@@ -25,16 +16,61 @@ export const WORKOUTS = {
         name: 'Press banca',
         type: 'basic',
         scheme: 'topback',
+        loadType: 'bar',
         topReps: [4, 6],
         backReps: [6, 8],
-        backSets: 3
+        backSets: 3,
+        restTopToBackoff: 240,
+        restBetweenSets: 150
       },
-      { name: 'Press inclinado mancuernas', type: 'compound', reps: [8, 10], sets: 3, rir: '0-1' },
-      { name: 'Aperturas máquina', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Elevaciones laterales mancuerna', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Press militar mancuernas', type: 'compound', reps: [8, 10], sets: 3, rir: '0-1' },
-      { name: 'Extensión tríceps V-bar', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Press francés', type: 'iso', reps: [10, 12], sets: 3, rir: '0' }
+      {
+        name: 'Press inclinado mancuernas',
+        type: 'compound',
+        loadType: 'dumbbell',
+        reps: [8, 10],
+        sets: 3,
+        restBetweenSets: 150
+      },
+      {
+        name: 'Aperturas máquina',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Elevaciones laterales mancuerna',
+        type: 'iso',
+        loadType: 'dumbbell',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Press militar mancuernas',
+        type: 'compound',
+        loadType: 'dumbbell',
+        reps: [8, 10],
+        sets: 3,
+        restBetweenSets: 150
+      },
+      {
+        name: 'Extensión tríceps V-bar',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Press francés',
+        type: 'iso',
+        loadType: 'bar',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      }
     ]
   },
   2: {
@@ -47,15 +83,53 @@ export const WORKOUTS = {
         name: 'Dominadas',
         type: 'basic',
         scheme: 'topback',
+        loadType: 'bar',
         topReps: [4, 6],
         backReps: [6, 8],
-        backSets: 3
+        backSets: 3,
+        restTopToBackoff: 240,
+        restBetweenSets: 150
       },
-      { name: 'Remo barra', type: 'compound', reps: [8, 10], sets: 3, rir: '0-1' },
-      { name: 'Remo sentado máquina', type: 'compound', reps: [8, 10], sets: 3, rir: '0-1' },
-      { name: 'Curl inclinado alternado', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Curl Bayesian polea', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Pájaros máquina', type: 'iso', reps: [12, 15], sets: 3, rir: '0' }
+      {
+        name: 'Remo barra',
+        type: 'compound',
+        loadType: 'bar',
+        reps: [8, 10],
+        sets: 3,
+        restBetweenSets: 150
+      },
+      {
+        name: 'Remo sentado máquina',
+        type: 'compound',
+        loadType: 'machine',
+        reps: [8, 10],
+        sets: 3,
+        restBetweenSets: 150
+      },
+      {
+        name: 'Curl inclinado alternado',
+        type: 'iso',
+        loadType: 'dumbbell',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Curl Bayesian polea',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Pájaros máquina',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [12, 15],
+        sets: 2,
+        restBetweenSets: 120
+      }
     ]
   },
   3: {
@@ -68,14 +142,45 @@ export const WORKOUTS = {
         name: 'Sentadilla',
         type: 'basic',
         scheme: 'topback',
+        loadType: 'bar',
         topReps: [4, 6],
         backReps: [6, 8],
-        backSets: 3
+        backSets: 3,
+        restTopToBackoff: 240,
+        restBetweenSets: 150
       },
-      { name: 'Hip Thrust', type: 'compound', reps: [8, 10], sets: 3, rir: '0-1' },
-      { name: 'Extensión cuádriceps', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Femoral tumbado', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Gemelo máquina', type: 'iso', reps: [12, 15], sets: 4, rir: '0' }
+      {
+        name: 'Hip Thrust',
+        type: 'compound',
+        loadType: 'bar',
+        reps: [8, 10],
+        sets: 3,
+        restBetweenSets: 150
+      },
+      {
+        name: 'Extensión cuádriceps',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Femoral tumbado',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Gemelo máquina',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [12, 15],
+        sets: 4,
+        restBetweenSets: 120
+      }
     ]
   },
   4: {
@@ -88,16 +193,61 @@ export const WORKOUTS = {
         name: 'Press militar',
         type: 'basic',
         scheme: 'topback',
+        loadType: 'bar',
         topReps: [4, 6],
         backReps: [6, 8],
-        backSets: 3
+        backSets: 3,
+        restTopToBackoff: 240,
+        restBetweenSets: 150
       },
-      { name: 'Elevaciones laterales mancuerna', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Elevaciones laterales polea', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Curl Scott máquina', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Curl martillo cuerda', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Extensión tríceps V-bar', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Extensión tríceps unilateral', type: 'iso', reps: [10, 12], sets: 3, rir: '0' }
+      {
+        name: 'Elevaciones laterales mancuerna',
+        type: 'iso',
+        loadType: 'dumbbell',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Elevaciones laterales polea',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Curl Scott máquina',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Curl martillo cuerda',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Extensión tríceps V-bar',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Extensión tríceps unilateral',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      }
     ]
   },
   5: {
@@ -106,21 +256,59 @@ export const WORKOUTS = {
     focus: 'Espalda · Pecho (volumen)',
     color: '#a78bfa',
     exercises: [
-      { name: 'Jalón máquina', type: 'compound', reps: [8, 10], sets: 4, rir: '0-1' },
-      { name: 'Remo sentado máquina', type: 'compound', reps: [8, 10], sets: 4, rir: '0-1' },
-      { name: 'Press banca máquina', type: 'compound', reps: [8, 10], sets: 4, rir: '0-1' },
-      { name: 'Aperturas máquina', type: 'iso', reps: [10, 12], sets: 3, rir: '0' },
-      { name: 'Cruce de poleas', type: 'iso', reps: [10, 12], sets: 3, rir: '0' }
+      {
+        name: 'Jalón máquina',
+        type: 'compound',
+        loadType: 'machine',
+        reps: [8, 10],
+        sets: 4,
+        restBetweenSets: 150
+      },
+      {
+        name: 'Remo sentado máquina',
+        type: 'compound',
+        loadType: 'machine',
+        reps: [8, 10],
+        sets: 4,
+        restBetweenSets: 150
+      },
+      {
+        name: 'Press banca máquina',
+        type: 'compound',
+        loadType: 'machine',
+        reps: [8, 10],
+        sets: 4,
+        restBetweenSets: 150
+      },
+      {
+        name: 'Aperturas máquina',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
+      {
+        name: 'Cruce de poleas',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      }
     ]
   }
 };
 
 export const BASIC_EXERCISES = ['Press banca', 'Dominadas', 'Sentadilla', 'Press militar'];
 
-/**
- * Determina cuál es el siguiente entreno según el último registrado.
- * Sigue la secuencia 1 → 2 → 3 → 4 → 5 → 1.
- */
+// Incremento por defecto según tipo de carga
+export const DEFAULT_INCREMENT = {
+  bar: 2.5,
+  dumbbell: 2,
+  machine: 5
+};
+
 export function getNextWorkoutId(sessions) {
   if (!sessions || sessions.length === 0) return 1;
   const sorted = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
@@ -129,9 +317,6 @@ export function getNextWorkoutId(sessions) {
   return lastId === 5 ? 1 : lastId + 1;
 }
 
-/**
- * Encuentra la última fecha en la que se hizo un entreno concreto.
- */
 export function getLastWorkoutDate(sessions, workoutId) {
   const matches = sessions
     .filter(s => s.workoutId === workoutId)
@@ -139,10 +324,6 @@ export function getLastWorkoutDate(sessions, workoutId) {
   return matches.length > 0 ? matches[0].date : null;
 }
 
-/**
- * Devuelve el historial completo de un ejercicio (todas las sesiones donde aparece).
- * Ordenado de más reciente a más antiguo.
- */
 export function getExerciseHistory(sessions, exerciseName) {
   const history = [];
   for (const session of sessions) {

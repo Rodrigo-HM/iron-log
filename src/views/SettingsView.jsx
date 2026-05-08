@@ -189,23 +189,41 @@ export function SettingsView({ sessions, settings, onSettingsChange, onDataChang
       </button>
 
       <div className="section-label" style={{ marginTop: 28 }}>Reglas de progresión</div>
-      <div className="setting-card" style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text-dim)' }}>
-        <div style={{ marginBottom: 10 }}><strong style={{ color: 'var(--text)' }}>Top set (1×4-6 reps):</strong></div>
-        <div>RPE ≤7 → +2.5kg próxima sesión</div>
-        <div>RPE 8 → +1.25kg</div>
-        <div>RPE 8.5-9 → mantener</div>
-        <div>RPE 9.5-10 o reps&lt;4 → -2.5kg</div>
-        <div style={{ margin: '12px 0 10px' }}><strong style={{ color: 'var(--text)' }}>Back offs (3×6-8 reps):</strong></div>
-        <div>3 series a 8 reps → +2.5kg</div>
-        <div>Alguna serie &lt;6 reps → -2.5kg</div>
-        <div>Resto → mantener</div>
-        <div style={{ margin: '12px 0 10px' }}><strong style={{ color: 'var(--text)' }}>Compuestos (RIR 0-1):</strong></div>
-        <div>Todas las series al techo → +2.5kg</div>
-        <div>Alguna por debajo del rango → -2.5kg</div>
-        <div style={{ margin: '12px 0 10px' }}><strong style={{ color: 'var(--text)' }}>Aislamiento (al fallo):</strong></div>
-        <div>Todas las series al techo → +1.25kg</div>
-        <div style={{ margin: '12px 0 10px' }}><strong style={{ color: 'var(--text)' }}>En definición:</strong></div>
-        <div>Todos los ejercicios mantienen peso (prioridad: no perder masa)</div>
+      <div className="setting-card" style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--text-dim)' }}>
+        <div style={{ marginBottom: 8 }}><strong style={{ color: 'var(--accent)' }}>ESCALA DE ESFUERZO</strong></div>
+        <div>💪 Fácil (≤7) · 😐 Regular (8) · 😤 Justo (8.5-9) · 💀 Al límite (9.5-10)</div>
+        <div style={{ fontSize: 11, marginTop: 2 }}>Aislamientos no usan esfuerzo, solo reps.</div>
+
+        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>BÁSICOS — Top set</strong></div>
+        <div>💪 o 😐 (sin back off 💀) → +incremento</div>
+        <div>😐 con algún back off 💀 → mantener</div>
+        <div>😤 → mantener, +1 rep objetivo</div>
+        <div>💀 primera vez → mantener · 💀 dos seguidas → −incremento</div>
+
+        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>BÁSICOS — Back offs</strong></div>
+        <div>Peso = top set × (1 − reducción según esfuerzo)</div>
+        <div style={{ fontSize: 11 }}>💪 8% · 😐 10% · 😤 12.5% · 💀 15%</div>
+        <div>Back off 1 sale 💀 → −2.5kg automático en los siguientes</div>
+        <div>💀 dos sesiones seguidas → −incremento</div>
+
+        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>COMPUESTOS</strong></div>
+        <div>Todas al techo + última no fue 💀 → +incremento</div>
+        <div>Todas al techo pero última 💀 → mantener</div>
+        <div>Por debajo del mínimo dos sesiones seguidas → −incremento</div>
+
+        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>AISLAMIENTOS</strong></div>
+        <div>Todas al techo en UNA sesión → +incremento</div>
+        <div>Por debajo del mínimo DOS sesiones → −incremento</div>
+
+        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>INCREMENTOS</strong></div>
+        <div>Barra +2.5kg · Mancuernas +2kg · Máquina +5kg</div>
+
+        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>DELOAD</strong></div>
+        <div>💀 dos veces seguidas o peso bajando 3 sesiones → sugerencia automática</div>
+        <div style={{ fontSize: 11 }}>80% del peso habitual, −1 serie, sin llegar al fallo.</div>
+
+        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>DEFINICIÓN</strong></div>
+        <div>Las mismas reglas. Se puede subir si el esfuerzo lo justifica. No aumentar series.</div>
       </div>
     </div>
   );

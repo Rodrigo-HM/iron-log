@@ -19,9 +19,13 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+const EFFORT_SYMBOL = { easy: '💪', good: '😐', hard: '😤', limit: '💀' };
+
 function formatSet(s) {
-  let text = `${s.kg}×${s.reps}`;
-  if (s.rpe && s.rpe !== '') text += `@${s.rpe}`;
+  const label = s.isTopSet ? 'TOP' : s.isBackOff ? 'BO' : null;
+  let text = label ? `[${label}] ` : '';
+  text += `${s.kg}×${s.reps}`;
+  if (s.effort) text += ` ${EFFORT_SYMBOL[s.effort] ?? s.effort}`;
   return text;
 }
 
