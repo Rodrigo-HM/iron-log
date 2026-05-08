@@ -1,94 +1,91 @@
-/**
- * ═══════════════════════════════════════════════════════════════════════════
- *   STORAGE LAYER - IndexedDB para persistencia robusta
- * ═══════════════════════════════════════════════════════════════════════════
- *
- * Por qué IndexedDB en vez de localStorage:
- *   - Mucha más capacidad (50MB+ vs 5MB)
- *   - Asíncrono, no bloquea la UI
- *   - Estructura de objetos nativa (sin JSON.stringify/parse manual)
- *   - Mejor para datos que crecerán (cientos/miles de sesiones)
- *
- * Schema:
- *   - sessions: { id (auto), date, workoutId, exercises: [...] }
- *   - settings: { key, value }
- * ═══════════════════════════════════════════════════════════════════════════
- */
-
-import { openDB } from 'idb';
-
-const DB_NAME = 'iron-log';
-const DB_VERSION = 1;
-
-let dbPromise = null;
-
-function getDb() {
-  if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('sessions')) {
-          const store = db.createObjectStore('sessions', { keyPath: 'id', autoIncrement: true });
-          store.createIndex('by-date', 'date');
-          store.createIndex('by-workout', 'workoutId');
-        }
-        if (!db.objectStoreNames.contains('settings')) {
-          db.createObjectStore('settings', { keyPath: 'key' });
-        }
-      }
-    });
-  }
-  return dbPromise;
-}
+import { supabase } from './supabase';
 
 // ───────────────────────────────────────────────────────────────────────────
 //   SESSIONS
 // ───────────────────────────────────────────────────────────────────────────
 
 export async function getAllSessions() {
-  const db = await getDb();
-  return db.getAll('sessions');
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .order('date', { ascending: false });
+  if (error) throw error;
+  return data.map(row => ({
+    id: row.id,
+    date: row.date,
+    workoutId: row.workout_id,
+    exercises: row.exercises
+  }));
 }
 
 export async function saveSession(session) {
-  const db = await getDb();
-  // Si ya existe sesión para misma fecha + workoutId, la reemplazamos
+  const { data: { user } } = await supabase.auth.getUser();
+
   const existing = await getSession(session.date, session.workoutId);
+
   if (existing) {
-    return db.put('sessions', { ...session, id: existing.id });
+    const { error } = await supabase
+      .from('sessions')
+      .update({ exercises: session.exercises })
+      .eq('id', existing.id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('sessions')
+      .insert({
+        user_id: user.id,
+        workout_id: session.workoutId,
+        date: session.date,
+        exercises: session.exercises
+      });
+    if (error) throw error;
   }
-  return db.add('sessions', session);
 }
 
 export async function getSession(date, workoutId) {
-  const all = await getAllSessions();
-  return all.find(s => s.date === date && s.workoutId === workoutId);
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('date', date)
+    .eq('workout_id', workoutId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    id: data.id,
+    date: data.date,
+    workoutId: data.workout_id,
+    exercises: data.exercises
+  };
 }
 
 export async function deleteSession(id) {
-  const db = await getDb();
-  return db.delete('sessions', id);
+  const { error } = await supabase.from('sessions').delete().eq('id', id);
+  if (error) throw error;
 }
 
 export async function bulkAddSessions(sessions) {
-  const db = await getDb();
-  const tx = db.transaction('sessions', 'readwrite');
+  const { data: { user } } = await supabase.auth.getUser();
   let added = 0;
   for (const sess of sessions) {
-    // Saltar si ya existe (misma fecha + workoutId)
-    const all = await tx.store.getAll();
-    const exists = all.some(s => s.date === sess.date && s.workoutId === sess.workoutId);
-    if (!exists) {
-      await tx.store.add(sess);
-      added++;
+    const existing = await getSession(sess.date, sess.workoutId);
+    if (!existing) {
+      const { error } = await supabase.from('sessions').insert({
+        user_id: user.id,
+        workout_id: sess.workoutId,
+        date: sess.date,
+        exercises: sess.exercises
+      });
+      if (!error) added++;
     }
   }
-  await tx.done;
   return added;
 }
 
 export async function clearAllSessions() {
-  const db = await getDb();
-  return db.clear('sessions');
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase.from('sessions').delete().eq('user_id', user.id);
+  if (error) throw error;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -96,14 +93,23 @@ export async function clearAllSessions() {
 // ───────────────────────────────────────────────────────────────────────────
 
 export async function getSetting(key, defaultValue = null) {
-  const db = await getDb();
-  const result = await db.get('settings', key);
-  return result ? result.value : defaultValue;
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from('settings')
+    .select(key)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data || data[key] === null || data[key] === undefined) return defaultValue;
+  return data[key];
 }
 
 export async function setSetting(key, value) {
-  const db = await getDb();
-  return db.put('settings', { key, value });
+  const { data: { user } } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from('settings')
+    .upsert({ user_id: user.id, [key]: value }, { onConflict: 'user_id' });
+  if (error) throw error;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -111,30 +117,26 @@ export async function setSetting(key, value) {
 // ───────────────────────────────────────────────────────────────────────────
 
 export async function exportAllData() {
-  const db = await getDb();
-  const sessions = await db.getAll('sessions');
-  const settingsRaw = await db.getAll('settings');
-  const settings = Object.fromEntries(settingsRaw.map(s => [s.key, s.value]));
+  const sessions = await getAllSessions();
+  const bodyWeight = await getSetting('body_weight', 87);
+  const phase = await getSetting('phase', 'bulk');
+  const cutStart = await getSetting('cut_start', '2026-05-15');
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
     sessions,
-    settings
+    settings: { bodyWeight, phase, cutStart }
   };
 }
 
 export async function importAllData(data) {
   if (!data.sessions) throw new Error('Formato inválido: falta "sessions"');
-  const db = await getDb();
-  await db.clear('sessions');
-  await db.clear('settings');
-  for (const sess of data.sessions) {
-    delete sess.id; // dejar que IDB asigne nuevo
-    await db.add('sessions', sess);
-  }
+  await clearAllSessions();
+  await bulkAddSessions(data.sessions);
   if (data.settings) {
-    for (const [key, value] of Object.entries(data.settings)) {
-      await db.put('settings', { key, value });
-    }
+    const s = data.settings;
+    if (s.bodyWeight !== undefined) await setSetting('body_weight', s.bodyWeight);
+    if (s.phase !== undefined) await setSetting('phase', s.phase);
+    if (s.cutStart !== undefined) await setSetting('cut_start', s.cutStart);
   }
 }

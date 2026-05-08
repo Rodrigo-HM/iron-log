@@ -6,6 +6,8 @@ import { HomeView } from './views/HomeView';
 import { SessionView } from './views/SessionView';
 import { HistoryView } from './views/HistoryView';
 import { SettingsView } from './views/SettingsView';
+import { LoginView } from './views/LoginView';
+import { supabase } from './lib/supabase';
 import {
   getAllSessions,
   saveSession as saveSessionToDb,
@@ -22,6 +24,7 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function App() {
+  const [user, setUser] = useState(undefined); // undefined = cargando, null = no auth
   const [tab, setTab] = useState('home');
   const [sessionWorkoutId, setSessionWorkoutId] = useState(null);
   const [sessions, setSessions] = useState([]);
@@ -29,23 +32,41 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const { toast, showToast, hideToast } = useToast();
 
-  // Cargar datos al iniciar
+  // Escuchar cambios de auth
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Cargar datos cuando hay usuario
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     (async () => {
+      setLoading(true);
       try {
         const allSessions = await getAllSessions();
         setSessions(allSessions);
 
-        const bodyWeight = await getSetting('bodyWeight', DEFAULT_SETTINGS.bodyWeight);
+        const bodyWeight = await getSetting('body_weight', DEFAULT_SETTINGS.bodyWeight);
         const phase = await getSetting('phase', DEFAULT_SETTINGS.phase);
-        const cutStart = await getSetting('cutStart', DEFAULT_SETTINGS.cutStart);
+        const cutStart = await getSetting('cut_start', DEFAULT_SETTINGS.cutStart);
         setSettings({ bodyWeight, phase, cutStart });
       } catch (err) {
         console.error('Error loading data:', err);
       }
       setLoading(false);
     })();
-  }, []);
+  }, [user]);
 
   const refreshSessions = useCallback(async () => {
     const allSessions = await getAllSessions();
@@ -54,14 +75,13 @@ export default function App() {
 
   const handleSettingsChange = async (newSettings) => {
     setSettings(newSettings);
-    await setSetting('bodyWeight', newSettings.bodyWeight);
+    await setSetting('body_weight', newSettings.bodyWeight);
     await setSetting('phase', newSettings.phase);
-    await setSetting('cutStart', newSettings.cutStart);
+    await setSetting('cut_start', newSettings.cutStart);
   };
 
   const handleTabChange = (newTab) => {
     if (newTab === 'session') {
-      // Abrir el siguiente workout que toca
       const nextId = getNextWorkoutId(sessions);
       setSessionWorkoutId(nextId);
     } else {
@@ -99,12 +119,18 @@ export default function App() {
     setSessionWorkoutId(null);
   };
 
-  if (loading) {
+  // Aún determinando si hay sesión
+  if (user === undefined || loading) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>
         Cargando...
       </div>
     );
+  }
+
+  // No autenticado
+  if (user === null) {
+    return <LoginView />;
   }
 
   // Determinar qué vista mostrar

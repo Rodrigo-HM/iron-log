@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { parseJefitCSV } from '../lib/jefit-import';
 import { generateClaudeSummary } from '../lib/claude-export';
 import { exportAllData, importAllData, clearAllSessions, bulkAddSessions } from '../lib/storage';
+import { supabase } from '../lib/supabase';
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
@@ -181,6 +182,11 @@ export function SettingsView({ sessions, settings, onSettingsChange, onDataChang
           <div className="setting-value">{sortedDates.length > 0 ? formatDate(sortedDates[sortedDates.length - 1].date) : '—'}</div>
         </div>
       </div>
+
+      <div className="section-label" style={{ marginTop: 28 }}>Cuenta</div>
+      <button className="secondary-btn danger-btn" onClick={() => supabase.auth.signOut()}>
+        Cerrar sesión
+      </button>
 
       <div className="section-label" style={{ marginTop: 28 }}>Reglas de progresión</div>
       <div className="setting-card" style={{ fontSize: 12, lineHeight: 1.7, color: 'var(--text-dim)' }}>
