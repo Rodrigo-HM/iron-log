@@ -71,11 +71,18 @@ export async function bulkAddSessions(sessions) {
   const { data: { user } } = await supabase.auth.getUser();
   let added = 0;
   for (const sess of sessions) {
-    const existing = await getSession(sess.date, sess.workoutId);
+    // Evitar duplicados: misma fecha + mismo workoutId
+    const { data: existing } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('date', sess.date)
+      .eq('workout_id', sess.workoutId ?? null)
+      .maybeSingle();
     if (!existing) {
       const { error } = await supabase.from('sessions').insert({
         user_id: user.id,
-        workout_id: sess.workoutId,
+        workout_id: sess.workoutId ?? null,
         date: sess.date,
         exercises: sess.exercises
       });

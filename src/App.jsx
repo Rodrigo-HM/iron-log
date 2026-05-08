@@ -173,6 +173,7 @@ export default function App() {
       <SettingsView
         sessions={sessions}
         settings={settings}
+        activeRoutine={activeRoutine}
         onSettingsChange={handleSettingsChange}
         onDataChange={refreshSessions}
         showToast={showToast}

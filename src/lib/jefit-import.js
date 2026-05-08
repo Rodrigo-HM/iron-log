@@ -12,8 +12,6 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { BASIC_EXERCISES } from './workouts';
-
 const LBS_TO_KG = 0.453592;
 
 // Mapeo de nombres Jefit → nombres limpios en español
@@ -56,7 +54,8 @@ const EXERCISE_MAP = {
   'Calf Press On Leg Press': 'Gemelo en prensa',
   'Machine Hip Adduction': 'Aductor máquina',
   'Machine Hip Abduction': 'Abductor máquina',
-  'Machine Leg Press': 'Prensa'
+  'Machine Leg Press': 'Prensa',
+  'Peso muerto rumano con mancuernas': 'Peso muerto rumano mancuernas'
 };
 
 // Parser de línea CSV que respeta comillas
@@ -109,68 +108,54 @@ function csvSectionToObjects(lines) {
 }
 
 /**
- * Infiere el workoutId (1-5) según los ejercicios presentes.
- * Esto es importante porque en Jefit no hay distinción de "tipo de entreno",
- * pero podemos detectarlo por el ejercicio principal.
+ * Dado un array de nombres de ejercicios (ya traducidos) y los días de una
+ * rutina, devuelve el dayIndex (0-based) del día con más coincidencias.
+ * Devuelve null si ningún día tiene al menos 1 ejercicio en común.
  */
-function inferWorkoutId(exNames) {
-  if (exNames.includes('Press militar')) return 4;
-  if (exNames.includes('Sentadilla')) return 3;
-  if (exNames.includes('Dominadas')) return 2;
-  if (exNames.includes('Press banca')) return 1;
+function matchDayIndex(exNames, routineDays) {
+  const sessionSet = new Set(exNames.map(n => n.toLowerCase().trim()));
+  let bestIdx = null;
+  let bestScore = 0;
 
-  // Sin básico: heurísticas sobre los nombres
-  const joined = exNames.join(' | ').toLowerCase();
-  const hasChest =
-    joined.includes('press inclinado') ||
-    joined.includes('press banca máquina') ||
-    joined.includes('aperturas') ||
-    joined.includes('cruce');
-  const hasBack = joined.includes('remo') || joined.includes('jalón');
-  const hasLegs =
-    joined.includes('cuádriceps') ||
-    joined.includes('femoral') ||
-    joined.includes('gemelo') ||
-    joined.includes('prensa') ||
-    joined.includes('hip');
-  const hasShoulders =
-    joined.includes('lateral') ||
-    joined.includes('press dublin') ||
-    joined.includes('press militar mancuernas');
-  const hasArms = joined.includes('curl') || joined.includes('tríceps') || joined.includes('francés');
+  routineDays.forEach((day, idx) => {
+    const score = (day.exercises ?? []).filter(e =>
+      sessionSet.has(e.name.toLowerCase().trim())
+    ).length;
+    if (score > bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  });
 
-  if (hasLegs) return 3;
-  if (hasBack && hasChest) return 5;
-  if (hasBack) return 2;
-  if (hasShoulders && hasArms) return 4;
-  if (hasChest) return 1;
-
-  return null;
+  return bestScore > 0 ? bestIdx : null;
 }
 
-function determineType(exerciseName) {
-  if (BASIC_EXERCISES.includes(exerciseName)) return 'basic';
-  if (
-    exerciseName.includes('Press') ||
-    exerciseName.includes('Remo') ||
-    exerciseName.includes('Jalón') ||
-    exerciseName.includes('Hip Thrust')
-  ) {
-    return 'compound';
+function determineType(exerciseName, routineDays) {
+  for (const day of routineDays) {
+    const match = (day.exercises ?? []).find(
+      e => e.name.toLowerCase().trim() === exerciseName.toLowerCase().trim()
+    );
+    if (match) return match.type ?? 'iso';
   }
+  // Fallback heurístico si el ejercicio no está en la rutina
+  const n = exerciseName.toLowerCase();
+  if (n.includes('press') || n.includes('remo') || n.includes('jalón')) return 'compound';
   return 'iso';
 }
 
 /**
  * Parsea el CSV completo de Jefit y devuelve un array de sesiones
  * en el formato interno de Iron Log.
+ * activeRoutine: { days: [{ name, exercises: [{ name, type, ... }] }] }
  */
-export function parseJefitCSV(text) {
+export function parseJefitCSV(text, activeRoutine) {
   const sections = parseSections(text);
 
   if (!sections['EXERCISE LOGS'] || !sections['EXERCISE SET LOGS']) {
     throw new Error('El CSV no contiene las secciones esperadas de Jefit.');
   }
+
+  const routineDays = activeRoutine?.days ?? [];
 
   const exerciseLogs = csvSectionToObjects(sections['EXERCISE LOGS']);
   const setLogs = csvSectionToObjects(sections['EXERCISE SET LOGS']);
@@ -213,16 +198,17 @@ export function parseJefitCSV(text) {
     }
   }
 
-  // Convertir a sesiones con workoutId inferido
+  // Convertir a sesiones asignando dayIndex por coincidencia con la rutina
   const sessions = [];
   for (const fecha of Object.keys(sessionsByDate).sort()) {
     const exList = sessionsByDate[fecha];
     const exNames = exList.map(e => e.name);
-    const workoutId = inferWorkoutId(exNames);
-    if (!workoutId) continue;
+    const dayIndex = routineDays.length > 0
+      ? matchDayIndex(exNames, routineDays)
+      : null;
 
     const exercises = exList.map(ex => {
-      const type = determineType(ex.name);
+      const type = determineType(ex.name, routineDays);
       const sets = ex.sets.map((s, i) => ({
         kg: s.kg,
         reps: s.reps,
@@ -235,7 +221,7 @@ export function parseJefitCSV(text) {
 
     sessions.push({
       date: fecha,
-      workoutId,
+      workoutId: dayIndex,
       exercises
     });
   }

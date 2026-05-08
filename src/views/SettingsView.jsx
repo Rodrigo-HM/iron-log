@@ -9,7 +9,7 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function SettingsView({ sessions, settings, onSettingsChange, onDataChange, showToast }) {
+export function SettingsView({ sessions, settings, activeRoutine, onSettingsChange, onDataChange, showToast }) {
   const importRef = useRef(null);
 
   const handleImport = () => importRef.current?.click();
@@ -20,7 +20,7 @@ export function SettingsView({ sessions, settings, onSettingsChange, onDataChang
     try {
       const text = await file.text();
       if (file.name.endsWith('.csv')) {
-        const parsed = parseJefitCSV(text);
+        const parsed = parseJefitCSV(text, activeRoutine);
         const added = await bulkAddSessions(parsed);
         showToast(`Importadas ${added} sesiones ✓`);
       } else {
