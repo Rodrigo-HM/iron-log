@@ -309,6 +309,7 @@ export const DEFAULT_INCREMENT = {
   machine: 5
 };
 
+// Legacy — usado en historial y export (workoutId sigue siendo el dayIndex)
 export function getNextWorkoutId(sessions) {
   if (!sessions || sessions.length === 0) return 1;
   const sorted = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
@@ -317,9 +318,18 @@ export function getNextWorkoutId(sessions) {
   return lastId === 5 ? 1 : lastId + 1;
 }
 
-export function getLastWorkoutDate(sessions, workoutId) {
+// Versión dinámica: devuelve el índice del día siguiente (0-based)
+export function getNextWorkoutDayIndex(sessions, totalDays) {
+  if (!sessions || sessions.length === 0 || !totalDays) return 0;
+  const sorted = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
+  const lastDayIndex = sorted[0].workoutId; // workoutId almacena el dayIndex
+  if (lastDayIndex === null || lastDayIndex === undefined) return 0;
+  return (lastDayIndex + 1) % totalDays;
+}
+
+export function getLastWorkoutDate(sessions, dayIndex) {
   const matches = sessions
-    .filter(s => s.workoutId === workoutId)
+    .filter(s => s.workoutId === dayIndex)
     .sort((a, b) => b.date.localeCompare(a.date));
   return matches.length > 0 ? matches[0].date : null;
 }

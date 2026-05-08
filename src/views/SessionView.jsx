@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { WORKOUTS, getExerciseHistory } from '../lib/workouts';
+import { getExerciseHistory } from '../lib/workouts';
 import { generateSuggestion, calcBackoffWeight, EFFORT_LEVELS } from '../lib/progression';
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────
@@ -19,12 +19,11 @@ function getInitialSets(exDef) {
   return sets;
 }
 
-function buildEmptySession(workoutId) {
-  const w = WORKOUTS[workoutId];
+function buildEmptySession(day, dayIndex) {
   return {
     date: new Date().toISOString().split('T')[0],
-    workoutId,
-    exercises: w.exercises.map(ex => ({
+    workoutId: dayIndex,
+    exercises: (day.exercises ?? []).map(ex => ({
       name: ex.name,
       type: ex.type,
       scheme: ex.scheme || null,
@@ -349,10 +348,9 @@ function ExerciseCard({ exercise, exDef, history, onUpdateSet, onAddSet, onRemov
 
 // ─── SESSION VIEW ─────────────────────────────────────────────────────────
 
-export function SessionView({ workoutId, sessions, settings, existingSession, onSave, onBack }) {
-  const w = WORKOUTS[workoutId];
+export function SessionView({ day, dayIndex, sessions, settings, existingSession, onSave, onBack }) {
   const [session, setSession] = useState(() =>
-    existingSession ? JSON.parse(JSON.stringify(existingSession)) : buildEmptySession(workoutId)
+    existingSession ? JSON.parse(JSON.stringify(existingSession)) : buildEmptySession(day, dayIndex)
   );
 
   const updateSet = useCallback((exIdx, setIdx, field, value) => {
@@ -443,11 +441,11 @@ export function SessionView({ workoutId, sessions, settings, existingSession, on
     <div className="page">
       <div className="session-header">
         <button className="back-btn" onClick={onBack}>← Atrás</button>
-        <div className="session-title">{w.name}</div>
+        <div className="session-title">{day.name}</div>
       </div>
 
       {session.exercises.map((ex, i) => {
-        const exDef = w.exercises.find(d => d.name === ex.name) ?? w.exercises[i];
+        const exDef = (day.exercises ?? []).find(d => d.name === ex.name) ?? day.exercises[i];
         const history = getExerciseHistory(sessions, ex.name);
         return (
           <ExerciseCard

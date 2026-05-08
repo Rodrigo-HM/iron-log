@@ -6,15 +6,17 @@ import { HomeView } from './views/HomeView';
 import { SessionView } from './views/SessionView';
 import { HistoryView } from './views/HistoryView';
 import { SettingsView } from './views/SettingsView';
+import { RoutinesView } from './views/RoutinesView';
 import { LoginView } from './views/LoginView';
 import { supabase } from './lib/supabase';
 import {
   getAllSessions,
   saveSession as saveSessionToDb,
   getSetting,
-  setSetting
+  setSetting,
+  getAllRoutines
 } from './lib/storage';
-import { getNextWorkoutId } from './lib/workouts';
+import { getNextWorkoutDayIndex } from './lib/workouts';
 import './styles/styles.css';
 
 const DEFAULT_SETTINGS = {
@@ -24,49 +26,53 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function App() {
-  const [user, setUser] = useState(undefined); // undefined = cargando, null = no auth
+  const [user, setUser] = useState(undefined);
   const [tab, setTab] = useState('home');
-  const [sessionWorkoutId, setSessionWorkoutId] = useState(null);
+  const [sessionDayIndex, setSessionDayIndex] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [routines, setRoutines] = useState([]);
+  const [activeRoutine, setActiveRoutine] = useState(null);
   const [loading, setLoading] = useState(true);
   const { toast, showToast, hideToast } = useToast();
 
-  // Escuchar cambios de auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
-  // Cargar datos cuando hay usuario
+  const refreshRoutines = useCallback(async () => {
+    const all = await getAllRoutines();
+    setRoutines(all);
+    const active = all.find(r => r.isActive) ?? null;
+    setActiveRoutine(active);
+  }, []);
+
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (!user) { setLoading(false); return; }
     (async () => {
       setLoading(true);
       try {
-        const allSessions = await getAllSessions();
+        const [allSessions] = await Promise.all([
+          getAllSessions(),
+          refreshRoutines()
+        ]);
         setSessions(allSessions);
-
         const bodyWeight = await getSetting('body_weight', DEFAULT_SETTINGS.bodyWeight);
-        const phase = await getSetting('phase', DEFAULT_SETTINGS.phase);
-        const cutStart = await getSetting('cut_start', DEFAULT_SETTINGS.cutStart);
+        const phase      = await getSetting('phase', DEFAULT_SETTINGS.phase);
+        const cutStart   = await getSetting('cut_start', DEFAULT_SETTINGS.cutStart);
         setSettings({ bodyWeight, phase, cutStart });
       } catch (err) {
         console.error('Error loading data:', err);
       }
       setLoading(false);
     })();
-  }, [user]);
+  }, [user, refreshRoutines]);
 
   const refreshSessions = useCallback(async () => {
     const allSessions = await getAllSessions();
@@ -82,31 +88,29 @@ export default function App() {
 
   const handleTabChange = (newTab) => {
     if (newTab === 'session') {
-      const nextId = getNextWorkoutId(sessions);
-      setSessionWorkoutId(nextId);
+      const totalDays = activeRoutine?.days?.length ?? 0;
+      const nextIdx = getNextWorkoutDayIndex(sessions, totalDays);
+      setSessionDayIndex(nextIdx);
     } else {
-      setSessionWorkoutId(null);
+      setSessionDayIndex(null);
     }
     setTab(newTab);
   };
 
-  const handleOpenWorkout = (workoutId) => {
-    setSessionWorkoutId(workoutId);
+  const handleOpenWorkout = (dayIndex) => {
+    setSessionDayIndex(dayIndex);
     setTab('session');
   };
 
   const handleSaveSession = async (session, errorMsg) => {
-    if (errorMsg) {
-      showToast(errorMsg);
-      return;
-    }
+    if (errorMsg) { showToast(errorMsg); return; }
     try {
       await saveSessionToDb(session);
       await refreshSessions();
       showToast('Sesión guardada ✓');
       setTimeout(() => {
         setTab('home');
-        setSessionWorkoutId(null);
+        setSessionDayIndex(null);
       }, 600);
     } catch (err) {
       console.error(err);
@@ -116,33 +120,26 @@ export default function App() {
 
   const handleBackFromSession = () => {
     setTab('home');
-    setSessionWorkoutId(null);
+    setSessionDayIndex(null);
   };
 
-  // Aún determinando si hay sesión
   if (user === undefined || loading) {
-    return (
-      <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>
-        Cargando...
-      </div>
-    );
+    return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Cargando...</div>;
   }
 
-  // No autenticado
-  if (user === null) {
-    return <LoginView />;
-  }
+  if (user === null) return <LoginView />;
 
-  // Determinar qué vista mostrar
   let currentView;
-  if (tab === 'session' && sessionWorkoutId) {
+  if (tab === 'session' && sessionDayIndex !== null && activeRoutine) {
+    const day = activeRoutine.days[sessionDayIndex];
     const today = new Date().toISOString().split('T')[0];
     const existingSession = sessions.find(
-      s => s.date === today && s.workoutId === sessionWorkoutId
+      s => s.date === today && s.workoutId === sessionDayIndex
     );
     currentView = (
       <SessionView
-        workoutId={sessionWorkoutId}
+        day={day}
+        dayIndex={sessionDayIndex}
         sessions={sessions}
         settings={settings}
         existingSession={existingSession}
@@ -155,11 +152,22 @@ export default function App() {
       <HomeView
         sessions={sessions}
         settings={settings}
+        activeRoutine={activeRoutine}
         onOpenWorkout={handleOpenWorkout}
+        onGoToRoutines={() => setTab('routines')}
       />
     );
   } else if (tab === 'history') {
     currentView = <HistoryView sessions={sessions} />;
+  } else if (tab === 'routines') {
+    currentView = (
+      <RoutinesView
+        routines={routines}
+        activeRoutineId={activeRoutine?.id ?? null}
+        onRoutinesChange={refreshRoutines}
+        showToast={showToast}
+      />
+    );
   } else if (tab === 'settings') {
     currentView = (
       <SettingsView

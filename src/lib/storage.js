@@ -113,6 +113,58 @@ export async function setSetting(key, value) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+//   ROUTINES
+// ───────────────────────────────────────────────────────────────────────────
+
+export async function getAllRoutines() {
+  const { data, error } = await supabase
+    .from('routines')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data.map(row => ({
+    id: row.id,
+    name: row.name,
+    days: row.days,
+    isActive: row.is_active
+  }));
+}
+
+export async function saveRoutine(routine) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (routine.id) {
+    const { error } = await supabase
+      .from('routines')
+      .update({ name: routine.name, days: routine.days })
+      .eq('id', routine.id);
+    if (error) throw error;
+    return routine.id;
+  } else {
+    const { data, error } = await supabase
+      .from('routines')
+      .insert({ user_id: user.id, name: routine.name, days: routine.days, is_active: false })
+      .select('id')
+      .single();
+    if (error) throw error;
+    return data.id;
+  }
+}
+
+export async function deleteRoutine(id) {
+  const { error } = await supabase.from('routines').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function setActiveRoutine(id) {
+  const { data: { user } } = await supabase.auth.getUser();
+  // Desactivar todas
+  await supabase.from('routines').update({ is_active: false }).eq('user_id', user.id);
+  // Activar la elegida
+  const { error } = await supabase.from('routines').update({ is_active: true }).eq('id', id);
+  if (error) throw error;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 //   EXPORT / IMPORT
 // ───────────────────────────────────────────────────────────────────────────
 

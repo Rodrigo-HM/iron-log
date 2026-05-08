@@ -658,6 +658,130 @@ button { font-family: inherit; }
   line-height: 1.6;
 }
 
+/* ─── ROUTINE HEADER (home) ──────────────────────────────────────── */
+.routine-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 10px;
+}
+
+.routine-header-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.routine-change-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 5px 12px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.routine-change-btn:active { background: var(--surface-2); }
+
+/* ─── ROUTINE CARDS (routines view) ──────────────────────────────── */
+.routine-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.routine-card.active {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--surface) 0%, rgba(255,69,0,0.05) 100%);
+}
+
+.routine-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.routine-card-name {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.routine-card-days {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.routine-active-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 3px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.routine-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.routine-card-actions .secondary-btn {
+  margin-bottom: 0;
+}
+
+/* ─── ROUTINE EDITOR ─────────────────────────────────────────────── */
+.routine-day-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.routine-day-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  color: var(--text-faint);
+  line-height: 1;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.routine-exercise-row {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px;
+  margin-bottom: 8px;
+}
+
+.routine-field-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+
 /* ─── EFFORT SELECTOR ─────────────────────────────────────────────── */
 .effort-selector {
   display: flex;

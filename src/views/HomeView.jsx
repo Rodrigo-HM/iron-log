@@ -1,4 +1,4 @@
-import { WORKOUTS, getNextWorkoutId, getLastWorkoutDate } from '../lib/workouts';
+import { getNextWorkoutDayIndex, getLastWorkoutDate } from '../lib/workouts';
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
@@ -35,13 +35,13 @@ function PhaseBadge({ phase, cutStart }) {
   );
 }
 
-function WorkoutCard({ workout, isNext, lastDate, onClick }) {
+function WorkoutCard({ day, dayIndex, isNext, lastDate, onClick }) {
   return (
     <div className={`workout-card ${isNext ? 'next' : ''}`} onClick={onClick}>
-      <div className="workout-num">{workout.id}</div>
+      <div className="workout-num">{dayIndex + 1}</div>
       <div className="workout-info">
-        <div className="workout-name">{workout.name}</div>
-        <div className="workout-focus">{workout.focus}</div>
+        <div className="workout-name">{day.name}</div>
+        <div className="workout-focus">{day.focus}</div>
         {isNext && (
           <div className="workout-last">
             {lastDate ? `Última vez: ${formatDate(lastDate)}` : 'Sin registros previos'}
@@ -58,19 +58,35 @@ function WorkoutCard({ workout, isNext, lastDate, onClick }) {
   );
 }
 
-export function HomeView({ sessions, settings, onOpenWorkout }) {
-  const nextId = getNextWorkoutId(sessions);
-  const nextWorkout = WORKOUTS[nextId];
-  const nextLastDate = getLastWorkoutDate(sessions, nextId);
-  const others = [1, 2, 3, 4, 5].filter(id => id !== nextId);
+export function HomeView({ sessions, settings, activeRoutine, onOpenWorkout, onGoToRoutines }) {
+  // Sin rutina activa
+  if (!activeRoutine) {
+    return (
+      <div className="page">
+        <div className="empty-state">
+          <div className="empty-state-text">
+            No hay ninguna rutina activa.<br />
+            Ve a <strong>Rutinas</strong> para crear o activar una.
+          </div>
+          <button className="primary-btn" style={{ marginTop: 20 }} onClick={onGoToRoutines}>
+            Ir a Rutinas
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  // Sesiones últimos 7 días
+  const days = activeRoutine.days ?? [];
+  const nextDayIndex = getNextWorkoutDayIndex(sessions, days.length);
+  const others = days.map((_, i) => i).filter(i => i !== nextDayIndex);
+
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const recentCount = sessions.filter(s => new Date(s.date) >= sevenDaysAgo).length;
 
   return (
     <div className="page">
+      {/* Stats */}
       <div className="big-num-row">
         <div className="big-num-card">
           <div className="big-num">
@@ -84,28 +100,42 @@ export function HomeView({ sessions, settings, onOpenWorkout }) {
         </div>
       </div>
 
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 16 }}>
         <PhaseBadge phase={settings.phase} cutStart={settings.cutStart} />
+      </div>
+
+      {/* Rutina activa + botón cambiar */}
+      <div className="routine-header-row">
+        <div className="routine-header-name">{activeRoutine.name}</div>
+        <button className="routine-change-btn" onClick={onGoToRoutines}>
+          Cambiar rutina
+        </button>
       </div>
 
       <div className="section-label">Siguiente entreno</div>
       <WorkoutCard
-        workout={nextWorkout}
+        day={days[nextDayIndex]}
+        dayIndex={nextDayIndex}
         isNext={true}
-        lastDate={nextLastDate}
-        onClick={() => onOpenWorkout(nextId)}
+        lastDate={getLastWorkoutDate(sessions, nextDayIndex)}
+        onClick={() => onOpenWorkout(nextDayIndex)}
       />
 
-      <div className="section-label" style={{ marginTop: 24 }}>Otros entrenos</div>
-      {others.map(id => (
-        <WorkoutCard
-          key={id}
-          workout={WORKOUTS[id]}
-          isNext={false}
-          lastDate={getLastWorkoutDate(sessions, id)}
-          onClick={() => onOpenWorkout(id)}
-        />
-      ))}
+      {others.length > 0 && (
+        <>
+          <div className="section-label" style={{ marginTop: 24 }}>Otros días</div>
+          {others.map(i => (
+            <WorkoutCard
+              key={i}
+              day={days[i]}
+              dayIndex={i}
+              isNext={false}
+              lastDate={getLastWorkoutDate(sessions, i)}
+              onClick={() => onOpenWorkout(i)}
+            />
+          ))}
+        </>
+      )}
     </div>
   );
 }
