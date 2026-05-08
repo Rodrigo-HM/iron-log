@@ -724,6 +724,10 @@ button { font-family: inherit; }
   font-weight: 700;
 }
 
+.cal-day.has-session.deload-only {
+  background: var(--blue);
+}
+
 .cal-day.today:not(.has-session) {
   border: 1px solid var(--accent);
   color: var(--accent);
@@ -760,6 +764,15 @@ button { font-family: inherit; }
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   color: var(--text-dim);
+}
+
+.cal-summary-deload {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 4px;
 }
 
 /* History list */

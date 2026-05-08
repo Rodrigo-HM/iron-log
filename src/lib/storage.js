@@ -5,9 +5,11 @@ import { supabase } from './supabase';
 // ───────────────────────────────────────────────────────────────────────────
 
 export async function getAllSessions() {
+  const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('sessions')
     .select('*')
+    .eq('user_id', user.id)
     .order('date', { ascending: false });
   if (error) throw error;
   return data.map(row => ({
@@ -51,9 +53,11 @@ export async function saveSession(session) {
 }
 
 export async function getSession(date, workoutId) {
+  const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('sessions')
     .select('*')
+    .eq('user_id', user.id)
     .eq('date', date)
     .eq('workout_id', workoutId)
     .maybeSingle();
@@ -136,9 +140,11 @@ export async function setSetting(key, value) {
 // ───────────────────────────────────────────────────────────────────────────
 
 export async function getAllRoutines() {
+  const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('routines')
     .select('*')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: true });
   if (error) throw error;
   return data.map(row => ({

@@ -11,15 +11,21 @@ const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto
 function SessionSummary({ session }) {
   return (
     <div className="cal-summary">
+      {session.isDeload && (
+        <div className="cal-summary-deload">🪶 Sesión de deload</div>
+      )}
       {session.exercises.map((ex, i) => {
         const validSets = ex.sets.filter(s => s.kg && s.reps);
         if (!validSets.length) return null;
-        const maxKg = Math.max(...validSets.map(s => parseFloat(s.kg) || 0));
-        const totalVol = validSets.reduce((acc, s) => acc + (parseFloat(s.kg) || 0) * (parseInt(s.reps) || 0), 0);
+        const topSet = validSets.find(s => s.isTopSet);
+        const topKg = topSet
+          ? parseFloat(topSet.kg) || 0
+          : Math.max(...validSets.map(s => parseFloat(s.kg) || 0));
+        const totalVol = Math.round(validSets.reduce((acc, s) => acc + (parseFloat(s.kg) || 0) * (parseInt(s.reps) || 0), 0));
         return (
           <div key={i} className="cal-summary-row">
             <span className="cal-summary-name">{ex.name}</span>
-            <span className="cal-summary-stats">{validSets.length} series · {maxKg}kg top · {totalVol}kg vol</span>
+            <span className="cal-summary-stats">{validSets.length} series · {topKg}kg top · {totalVol}kg vol</span>
           </div>
         );
       })}
@@ -61,7 +67,9 @@ function SessionCalendar({ sessions }) {
     if (month === 0) { setMonth(11); setYear(y => y - 1); }
     else setMonth(m => m - 1);
   };
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
   const nextMonth = () => {
+    if (isCurrentMonth) return;
     setSelectedDate(null);
     if (month === 11) { setMonth(0); setYear(y => y + 1); }
     else setMonth(m => m + 1);
@@ -79,25 +87,35 @@ function SessionCalendar({ sessions }) {
       <div className="cal-nav">
         <button className="cal-nav-btn" onClick={prevMonth}>‹</button>
         <span className="cal-month-label">{MONTHS[month]} {year}</span>
-        <button className="cal-nav-btn" onClick={nextMonth}>›</button>
+        <button
+          className="cal-nav-btn"
+          onClick={nextMonth}
+          disabled={isCurrentMonth}
+          style={{ opacity: isCurrentMonth ? 0.3 : 1, cursor: isCurrentMonth ? 'default' : 'pointer' }}
+        >›</button>
       </div>
       <div className="cal-grid">
         {DAYS.map(d => <div key={d} className="cal-day-header">{d}</div>)}
-        {cells.map((d, i) => (
-          <div
-            key={i}
-            onClick={() => handleDayClick(d)}
-            className={[
-              'cal-day',
-              !d ? 'empty' : '',
-              d && sessionsByDay.has(d) ? 'has-session' : '',
-              d && isToday(d) ? 'today' : '',
-              d && selectedDate === d ? 'selected' : '',
-            ].join(' ')}
-          >
-            {d || ''}
-          </div>
-        ))}
+        {cells.map((d, i) => {
+          const daySessions = d ? sessionsByDay.get(d) : null;
+          const onlyDeload = daySessions && daySessions.length > 0 && daySessions.every(s => s.isDeload);
+          return (
+            <div
+              key={i}
+              onClick={() => handleDayClick(d)}
+              className={[
+                'cal-day',
+                !d ? 'empty' : '',
+                daySessions ? 'has-session' : '',
+                onlyDeload ? 'deload-only' : '',
+                d && isToday(d) ? 'today' : '',
+                d && selectedDate === d ? 'selected' : '',
+              ].join(' ')}
+            >
+              {d || ''}
+            </div>
+          );
+        })}
       </div>
       {selectedSessions.map((s, i) => <SessionSummary key={i} session={s} />)}
     </div>

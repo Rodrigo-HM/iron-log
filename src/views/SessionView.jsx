@@ -278,47 +278,7 @@ function ExerciseCard({ exercise, exDef, history, lastSession, started, expanded
   const tagText  = exercise.type === 'basic' ? 'BÁSICO' : exercise.type === 'compound' ? 'COMPUESTO' : 'AISLAMIENTO';
   const tagClass = exercise.type === 'basic' ? 'tag-basic' : exercise.type === 'compound' ? 'tag-comp' : 'tag-iso';
 
-  const handleUpdateSet = useCallback((si, field, value) => {
-    onUpdateSet(si, field, value);
-
-    if (field === 'kg' && exercise.sets[si]?.isTopSet) {
-      const topKg = parseFloat(value);
-      const effort = exercise.sets[si]?.effort;
-      if (!isNaN(topKg) && effort) {
-        const backoffKg = calcBackoffWeight(topKg, effort);
-        if (backoffKg !== null) {
-          exercise.sets.forEach((s, idx) => {
-            if (s.isBackOff) onUpdateSet(idx, 'kg', String(backoffKg));
-          });
-        }
-      }
-    }
-
-    if (field === 'effort' && exercise.sets[si]?.isTopSet) {
-      const topKg = parseFloat(exercise.sets[si]?.kg);
-      if (!isNaN(topKg) && value) {
-        const backoffKg = calcBackoffWeight(topKg, value);
-        if (backoffKg !== null) {
-          exercise.sets.forEach((s, idx) => {
-            if (s.isBackOff) onUpdateSet(idx, 'kg', String(backoffKg));
-          });
-        }
-      }
-    }
-
-    if (field === 'effort' && exercise.sets[si]?.isBackOff) {
-      const backoffSets = exercise.sets.map((s, idx) => ({ ...s, idx })).filter(s => s.isBackOff);
-      const isFirstBackoff = backoffSets[0]?.idx === si;
-      if (isFirstBackoff && value === 'limit') {
-        backoffSets.slice(1).forEach(s => {
-          const currentKg = parseFloat(s.kg);
-          if (!isNaN(currentKg)) {
-            onUpdateSet(s.idx, 'kg', String(Math.max(0, currentKg - 2.5)));
-          }
-        });
-      }
-    }
-  }, [exercise.sets, onUpdateSet]);
+  const handleUpdateSet = onUpdateSet;
 
   const handleSetDone = (si) => {
     const set = exercise.sets[si];
