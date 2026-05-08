@@ -1,6 +1,5 @@
-import { useState, useRef } from 'react';
+import { useRef } from 'react';
 import { parseJefitCSV } from '../lib/jefit-import';
-import { generateClaudeSummary } from '../lib/claude-export';
 import { exportAllData, importAllData, clearAllSessions, bulkAddSessions } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 
@@ -11,33 +10,25 @@ function formatDate(dateStr) {
 }
 
 export function SettingsView({ sessions, settings, onSettingsChange, onDataChange, showToast }) {
-  const [exportPreview, setExportPreview] = useState('Toca el botón para generar el resumen…');
-  const fileInputRef = useRef(null);
-  const importDataRef = useRef(null);
+  const importRef = useRef(null);
 
-  const handleExportClaude = async () => {
-    const summary = generateClaudeSummary(sessions, settings);
-    setExportPreview(summary);
-    try {
-      await navigator.clipboard.writeText(summary);
-      showToast('Copiado al portapapeles ✓');
-    } catch {
-      showToast('Selecciona y copia manualmente');
-    }
-  };
+  const handleImport = () => importRef.current?.click();
 
-  const handleImportJefit = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleJefitFile = async (e) => {
+  const handleImportFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     try {
       const text = await file.text();
-      const sessions = parseJefitCSV(text);
-      const added = await bulkAddSessions(sessions);
-      showToast(`Importadas ${added} sesiones ✓`);
+      if (file.name.endsWith('.csv')) {
+        const parsed = parseJefitCSV(text);
+        const added = await bulkAddSessions(parsed);
+        showToast(`Importadas ${added} sesiones ✓`);
+      } else {
+        if (!confirm('Esto SOBRESCRIBIRÁ todos tus datos actuales. ¿Continuar?')) return;
+        const data = JSON.parse(text);
+        await importAllData(data);
+        showToast('Datos importados ✓');
+      }
       onDataChange();
     } catch (err) {
       console.error(err);
@@ -46,41 +37,16 @@ export function SettingsView({ sessions, settings, onSettingsChange, onDataChang
     e.target.value = '';
   };
 
-  const handleExportData = async () => {
+  const handleExport = async () => {
     const data = await exportAllData();
     const json = JSON.stringify(data, null, 2);
-    try {
-      await navigator.clipboard.writeText(json);
-      showToast('Datos copiados al portapapeles ✓');
-    } catch {
-      // Fallback: descargar
-      const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `iron-log-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-    }
-  };
-
-  const handleImportData = () => {
-    importDataRef.current?.click();
-  };
-
-  const handleImportDataFile = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (!confirm('Esto SOBRESCRIBIRÁ todos tus datos actuales. ¿Continuar?')) return;
-    try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      await importAllData(data);
-      showToast('Datos importados ✓');
-      onDataChange();
-    } catch (err) {
-      showToast('Error: ' + err.message);
-    }
-    e.target.value = '';
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `iron-log-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleReset = async () => {
@@ -99,26 +65,13 @@ export function SettingsView({ sessions, settings, onSettingsChange, onDataChang
     <div className="page">
       <input
         type="file"
-        accept=".csv"
-        ref={fileInputRef}
-        onChange={handleJefitFile}
-        style={{ display: 'none' }}
-      />
-      <input
-        type="file"
-        accept=".json"
-        ref={importDataRef}
-        onChange={handleImportDataFile}
+        accept=".csv,.json"
+        ref={importRef}
+        onChange={handleImportFile}
         style={{ display: 'none' }}
       />
 
-      <div className="section-label">Para Claude</div>
-      <button className="primary-btn" onClick={handleExportClaude}>
-        Copiar resumen para Claude
-      </button>
-      <div className="export-preview">{exportPreview}</div>
-
-      <div className="section-label" style={{ marginTop: 28 }}>Configuración</div>
+      <div className="section-label">Configuración</div>
       <div className="setting-card">
         <div className="setting-row">
           <div className="setting-label">Peso corporal</div>
@@ -154,14 +107,11 @@ export function SettingsView({ sessions, settings, onSettingsChange, onDataChang
       </div>
 
       <div className="section-label" style={{ marginTop: 28 }}>Datos</div>
-      <button className="secondary-btn" onClick={handleImportJefit}>
-        Importar histórico Jefit (CSV)
+      <button className="secondary-btn" onClick={handleImport}>
+        Importar datos (CSV Jefit o JSON)
       </button>
-      <button className="secondary-btn" onClick={handleExportData}>
-        Exportar todos los datos (JSON)
-      </button>
-      <button className="secondary-btn" onClick={handleImportData}>
-        Importar datos (JSON)
+      <button className="secondary-btn" onClick={handleExport}>
+        Exportar datos (JSON)
       </button>
       <button className="secondary-btn danger-btn" onClick={handleReset}>
         Borrar todos los datos
