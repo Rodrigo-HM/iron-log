@@ -71,14 +71,16 @@ export async function bulkAddSessions(sessions) {
   const { data: { user } } = await supabase.auth.getUser();
   let added = 0;
   for (const sess of sessions) {
-    // Evitar duplicados: misma fecha + mismo workoutId
-    const { data: existing } = await supabase
+    // Evitar duplicados: misma fecha + mismo workoutId (puede ser null)
+    let query = supabase
       .from('sessions')
       .select('id')
       .eq('user_id', user.id)
-      .eq('date', sess.date)
-      .eq('workout_id', sess.workoutId ?? null)
-      .maybeSingle();
+      .eq('date', sess.date);
+    query = sess.workoutId === null || sess.workoutId === undefined
+      ? query.is('workout_id', null)
+      : query.eq('workout_id', sess.workoutId);
+    const { data: existing } = await query.maybeSingle();
     if (!existing) {
       const { error } = await supabase.from('sessions').insert({
         user_id: user.id,
@@ -180,14 +182,18 @@ export async function setActiveRoutine(id) {
 
 export async function exportAllData() {
   const sessions = await getAllSessions();
+  const routines = await getAllRoutines();
   const bodyWeight = await getSetting('body_weight', 87);
+  const height = await getSetting('height', 0);
   const phase = await getSetting('phase', 'bulk');
   const cutStart = await getSetting('cut_start', '2026-05-15');
+  const weeklyGoal = await getSetting('weekly_goal', 4);
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     sessions,
-    settings: { bodyWeight, phase, cutStart }
+    routines,
+    settings: { bodyWeight, height, phase, cutStart, weeklyGoal }
   };
 }
 
@@ -198,7 +204,9 @@ export async function importAllData(data) {
   if (data.settings) {
     const s = data.settings;
     if (s.bodyWeight !== undefined) await setSetting('body_weight', s.bodyWeight);
+    if (s.height !== undefined) await setSetting('height', s.height);
     if (s.phase !== undefined) await setSetting('phase', s.phase);
     if (s.cutStart !== undefined) await setSetting('cut_start', s.cutStart);
+    if (s.weeklyGoal !== undefined) await setSetting('weekly_goal', s.weeklyGoal);
   }
 }

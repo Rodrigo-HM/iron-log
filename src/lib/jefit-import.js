@@ -48,6 +48,9 @@ const EXERCISE_MAP = {
   'Cable Tricep Pushdown (V-Bar)': 'Extensión tríceps V-bar',
   'EZ Bar Seated Reverse Grip French Press': 'Press francés',
   'Cable One-Arm Tricep Extension': 'Extensión tríceps unilateral',
+  'Cable Tricep Pushdown (Rope)': 'Extensión tríceps cuerda',
+  'Cable Rope Overhead Tricep Extension': 'Extensión tríceps cuerda sobre cabeza',
+  'Barbell Tricep Extension (Supine)': 'Press francés tumbado',
   'Machine Leg Extension': 'Extensión cuádriceps',
   'Machine Leg Curl (Prone)': 'Femoral tumbado',
   'Machine Calf Raise': 'Gemelo máquina',
@@ -55,7 +58,22 @@ const EXERCISE_MAP = {
   'Machine Hip Adduction': 'Aductor máquina',
   'Machine Hip Abduction': 'Abductor máquina',
   'Machine Leg Press': 'Prensa',
-  'Peso muerto rumano con mancuernas': 'Peso muerto rumano mancuernas'
+  'Barbell Deadlift': 'Peso muerto',
+  'Barbell Hip Thrust': 'Hip Thrust',
+  'Barbell Romanian Deadlift': 'Peso muerto rumano',
+  'Dumbbell Romanian Deadlift': 'Peso muerto rumano mancuernas',
+  'Peso muerto rumano con mancuernas': 'Peso muerto rumano mancuernas',
+  'Barbell Preacher Curl': 'Curl predicador barra',
+  'Cable Bicep Curl (Close Grip)': 'Curl polea agarre cerrado',
+  'Cable One-Arm Lateral Raise': 'Elevación lateral polea unilateral',
+  'Cable V Bar Pulldown': 'Jalón V-bar',
+  'Dumbbell Incline Fly': 'Aperturas inclinadas mancuerna',
+  'Dumbbell Lunge': 'Zancadas',
+  'Dumbbell Shoulder Shrug': 'Encogimientos mancuerna',
+  'Jalón agarre neutro (negro)': 'Jalón agarre neutro',
+  'Remo abierto en polea': 'Remo abierto polea',
+  'Curl bayesian polea': 'Curl Bayesian polea',
+  'Gemelo de pie': 'Gemelo de pie'
 };
 
 // Parser de línea CSV que respeta comillas

@@ -84,11 +84,19 @@ export function suggestTopSet(history, exDef) {
   const [minReps, maxReps] = exDef.topReps;
   const inc = getIncrement(exDef);
 
-  // No llegó al mínimo de reps → bajar
+  // No llegó al mínimo de reps → bajar SOLO si pasó dos sesiones seguidas
   if (!isNaN(reps) && reps < minReps) {
-    return suggest(weight - inc, [minReps, maxReps],
-      `Solo ${reps} reps (mínimo ${minReps}). Bajamos ${inc}kg para asegurar el rango.`,
-      'decrease');
+    const prevTopSet = prev?.sets.find(s => s.isTopSet) ?? prev?.sets[0];
+    const prevReps = num(prevTopSet?.reps);
+    const prevBelow = !isNaN(prevReps) && prevReps < minReps;
+    if (prevBelow) {
+      return suggest(weight - inc, [minReps, maxReps],
+        `Por debajo del mínimo dos sesiones seguidas (${reps} reps). Bajamos ${inc}kg.`,
+        'decrease');
+    }
+    return suggest(weight, [minReps, maxReps],
+      `Solo ${reps} reps (mínimo ${minReps}). Mantén e intenta llegar al rango.`,
+      'maintain');
   }
 
   // Sin esfuerzo registrado → usar solo reps
