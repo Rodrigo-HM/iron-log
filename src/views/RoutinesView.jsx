@@ -399,6 +399,21 @@ export function RoutinesView({ routines, activeRoutineId, onRoutinesChange, show
   const handleNewFromTemplate = () => setEditing(buildDefaultRoutine());
   const handleNewBlank = () => setEditing(emptyRoutine());
 
+  const handleUseExample = async () => {
+    setSaving(true);
+    try {
+      const routine = buildDefaultRoutine();
+      routine.name = 'Rutina ejemplo PPL';
+      const id = await saveRoutine(routine);
+      await setActiveRoutine(id);
+      await onRoutinesChange();
+      showToast('Rutina de ejemplo creada y activada ✓');
+    } catch (err) {
+      showToast('Error: ' + err.message);
+    }
+    setSaving(false);
+  };
+
   if (editing !== null) {
     return (
       <RoutineEditor
@@ -417,6 +432,12 @@ export function RoutinesView({ routines, activeRoutineId, onRoutinesChange, show
       {routines.length === 0 && (
         <div className="empty-state" style={{ marginBottom: 24 }}>
           <div className="empty-state-text">No tienes rutinas todavía.</div>
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 8, marginBottom: 16 }}>
+            Puedes empezar con la rutina de ejemplo Push/Pull/Piernas o crear la tuya desde cero.
+          </div>
+          <button className="primary-btn" style={{ marginTop: 0 }} onClick={handleUseExample} disabled={saving}>
+            Usar rutina de ejemplo
+          </button>
         </div>
       )}
 
@@ -449,7 +470,7 @@ export function RoutinesView({ routines, activeRoutineId, onRoutinesChange, show
 
       <div className="section-label" style={{ marginTop: 24 }}>Crear rutina</div>
       <button className="secondary-btn" onClick={handleNewFromTemplate}>
-        Crear desde plantilla (PPL actual)
+        Crear desde plantilla PPL (editable)
       </button>
       <button className="secondary-btn" onClick={handleNewBlank}>
         Crear en blanco
