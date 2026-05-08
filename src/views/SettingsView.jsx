@@ -191,21 +191,23 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
         <div style={{ fontSize: 11, marginTop: 2 }}>Aislamientos no usan esfuerzo, solo reps.</div>
 
         <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>BÁSICOS — Top set</strong></div>
-        <div>💪 o 😐 (sin back off 💀) → +incremento</div>
-        <div>😐 con algún back off 💀 → mantener</div>
-        <div>😤 → mantener, +1 rep objetivo</div>
+        <div>💪 (sin back off 💀) → +incremento</div>
+        <div>😐 al techo de reps (sin back off 💀) → +incremento</div>
+        <div>😐 en rango → mantener, suma +1 rep</div>
+        <div>😤 → mantener</div>
+        <div>Back off al límite con 💪/😐/😤 → mantener</div>
         <div>💀 primera vez → mantener · 💀 dos seguidas → −incremento</div>
+        <div>Por debajo de minReps dos seguidas → −incremento</div>
 
         <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>BÁSICOS — Back offs</strong></div>
-        <div>Peso = top set × (1 − reducción según esfuerzo)</div>
+        <div>Peso = top set × (1 − reducción según esfuerzo del top)</div>
         <div style={{ fontSize: 11 }}>💪 8% · 😐 10% · 😤 12.5% · 💀 15%</div>
-        <div>Back off 1 sale 💀 → −2.5kg automático en los siguientes</div>
-        <div>💀 dos sesiones seguidas → −incremento</div>
+        <div>💀 en back offs dos sesiones seguidas → −incremento</div>
 
         <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>COMPUESTOS</strong></div>
-        <div>Todas al techo + última no fue 💀 → +incremento</div>
-        <div>Todas al techo pero última 💀 → mantener</div>
-        <div>Por debajo del mínimo dos sesiones seguidas → −incremento</div>
+        <div>Todas al techo + ninguna serie 💀 → +incremento</div>
+        <div>Todas al techo pero alguna 💀 → mantener</div>
+        <div>Todas las series por debajo del mínimo dos seguidas → −incremento</div>
 
         <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>AISLAMIENTOS</strong></div>
         <div>Todas al techo en UNA sesión → +incremento</div>

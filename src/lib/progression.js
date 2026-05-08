@@ -121,35 +121,45 @@ export function suggestTopSet(history, exDef) {
       `💀 al límite (primera vez). Mantén, no bajes todavía.`, 'maintain');
   }
 
-  // Lógica esfuerzo normal
-  const effortToAction = {
-    easy:  { action: 'increase', delta: +inc,  reason: `💪 Fácil. Subimos ${inc}kg.` },
-    good:  { action: 'increase', delta: +inc,  reason: `😐 Regular con margen. Subimos ${inc}kg.` },
-    hard:  { action: 'maintain', delta: 0,     reason: `😤 Justo. Mantén e intenta +1 rep.` },
-  };
+  // Chequeo común: si algún back off fue 💀 → frenar la subida
+  const backoffs = last.sets.filter(s => s.isBackOff);
+  const anyBackoffLimit = backoffs.some(s => s.effort === 'limit');
 
-  // 😐 regular pero algún back off fue 💀 → mantener
+  // 💪 Fácil → subir, salvo back off al límite
+  if (effort === 'easy') {
+    if (anyBackoffLimit) {
+      return suggest(weight, [minReps, maxReps],
+        `💪 top set, pero algún back off fue 💀. Mantén.`, 'maintain');
+    }
+    return suggest(weight + inc, [minReps, maxReps],
+      `💪 Fácil. Subimos ${inc}kg.`, 'increase');
+  }
+
+  // 😐 Regular (RPE 8 = en el objetivo) → double progression: subir solo si techo de reps
   if (effort === 'good') {
-    const backoffs = last.sets.filter(s => s.isBackOff);
-    const anyBackoffLimit = backoffs.some(s => s.effort === 'limit');
     if (anyBackoffLimit) {
       return suggest(weight, [minReps, maxReps],
         `😐 top set, pero algún back off fue 💀. Mantén.`, 'maintain');
     }
+    if (!isNaN(reps) && reps >= maxReps) {
+      return suggest(weight + inc, [minReps, maxReps],
+        `😐 al techo (${reps} reps). Subimos ${inc}kg.`, 'increase');
+    }
+    return suggest(weight, [minReps, maxReps],
+      `😐 Regular en el objetivo. Mantén y suma +1 rep.`, 'maintain');
   }
 
-  // 😤 justo pero algún back off fue 💀 → mantener igualmente
+  // 😤 Justo → mantener
   if (effort === 'hard') {
-    const backoffs = last.sets.filter(s => s.isBackOff);
-    const anyBackoffLimit = backoffs.some(s => s.effort === 'limit');
     if (anyBackoffLimit) {
       return suggest(weight, [minReps, maxReps],
         `😤 top set + back off al límite. Mantén.`, 'maintain');
     }
+    return suggest(weight, [minReps, maxReps],
+      `😤 Justo. Mantén e intenta +1 rep.`, 'maintain');
   }
 
-  const { action, delta, reason } = effortToAction[effort];
-  return suggest(weight + delta, [minReps, maxReps], reason, action);
+  return suggest(weight, [minReps, maxReps], 'Mantén.', 'maintain');
 }
 
 // ─── BÁSICOS: back offs ───────────────────────────────────────────────────
@@ -242,33 +252,38 @@ export function suggestCompound(history, exDef) {
 
   const [minReps, maxReps] = exDef.reps;
   const inc = getIncrement(exDef);
-  const lastEffort = sets[sets.length - 1]?.effort ?? null;
   const allAtMax = allReps.every(r => r >= maxReps);
-  const anyBelowMin = allReps.some(r => r < minReps);
+  const allBelowMin = allReps.every(r => r < minReps);
 
-  // Caída por debajo del mínimo DOS sesiones seguidas → bajar
-  if (anyBelowMin && prev) {
-    const prevSets = prev.sets;
-    const prevReps = prevSets.map(s => num(s.reps)).filter(r => !isNaN(r));
-    const prevAnyBelow = prevReps.some(r => r < minReps);
-    if (prevAnyBelow) {
+  // Peor RPE de todas las series (jerarquía: limit > hard > good > easy)
+  const effortRank = { easy: 1, good: 2, hard: 3, limit: 4 };
+  const efforts = sets.map(s => s.effort).filter(Boolean);
+  const worstEffort = efforts.length > 0
+    ? efforts.reduce((w, e) => effortRank[e] > effortRank[w] ? e : w)
+    : null;
+
+  // TODAS las series por debajo del mínimo DOS sesiones seguidas → bajar
+  if (allBelowMin && prev) {
+    const prevReps = prev.sets.map(s => num(s.reps)).filter(r => !isNaN(r));
+    const prevAllBelow = prevReps.length > 0 && prevReps.every(r => r < minReps);
+    if (prevAllBelow) {
       return suggest(weight - inc, [minReps, maxReps],
-        `Por debajo del mínimo dos sesiones seguidas. Bajamos ${inc}kg.`, 'decrease');
+        `Todas las series por debajo del mínimo dos sesiones seguidas. Bajamos ${inc}kg.`, 'decrease');
     }
     return suggest(weight, [minReps, maxReps],
-      `Alguna serie por debajo del mínimo (primera vez). Mantén.`, 'maintain');
+      `Todas por debajo del mínimo (primera vez). Mantén.`, 'maintain');
   }
 
-  // Todas al techo + última no fue 💀 → subir
-  if (allAtMax && lastEffort !== 'limit') {
+  // Todas al techo + ninguna serie fue 💀 → subir
+  if (allAtMax && worstEffort !== 'limit') {
     return suggest(weight + inc, [minReps, maxReps],
       `Todas al techo (${maxReps} reps). Subimos ${inc}kg.`, 'increase');
   }
 
-  // Todas al techo pero última fue 💀 → mantener
-  if (allAtMax && lastEffort === 'limit') {
+  // Todas al techo pero alguna serie fue 💀 → mantener
+  if (allAtMax && worstEffort === 'limit') {
     return suggest(weight, [minReps, maxReps],
-      `Todas al techo pero última serie al límite. Mantén.`, 'maintain');
+      `Todas al techo pero alguna serie al límite. Mantén.`, 'maintain');
   }
 
   return suggest(weight, [minReps, maxReps],
@@ -373,9 +388,26 @@ export function generateSuggestion(history, exDef) {
   if (!history || history.length === 0) return null;
 
   if (exDef.scheme === 'topback') {
-    const topSet = suggestTopSet(history, exDef);
-    const backOffs = suggestBackOffs(history, exDef, topSet);
+    let topSet = suggestTopSet(history, exDef);
+    let backOffs = suggestBackOffs(history, exDef, topSet);
     const deload = detectDeload(history);
+    if (deload.needed && topSet) {
+      const deloadKg = round(topSet.weight * 0.8);
+      topSet = {
+        ...topSet,
+        weight: deloadKg,
+        action: 'decrease',
+        reason: `Deload: 80% del peso habitual. ${deload.reason}`
+      };
+      if (backOffs) {
+        backOffs = {
+          ...backOffs,
+          weight: round(deloadKg * 0.875),
+          action: 'decrease',
+          reason: 'Deload: back offs proporcionales al top.'
+        };
+      }
+    }
     return { type: 'topback', topSet, backOffs, deload };
   }
 
