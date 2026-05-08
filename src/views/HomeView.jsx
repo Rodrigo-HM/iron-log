@@ -6,31 +6,38 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
-function PhaseBadge({ phase, cutStart }) {
-  const cutDate = new Date(cutStart);
-  const today = new Date();
-  const daysToCut = Math.ceil((cutDate - today) / (1000 * 60 * 60 * 24));
+function WeeklyProgress({ sessions, weeklyGoal }) {
+  const goal = weeklyGoal || 4;
 
-  if (phase === 'bulk' && daysToCut > 0) {
-    return (
-      <div className="phase-badge">
-        <span className="phase-dot"></span>
-        VOLUMEN · {daysToCut} días para definición
-      </div>
-    );
-  }
-  if (phase === 'bulk') {
-    return (
-      <div className="phase-badge">
-        <span className="phase-dot cut"></span>
-        DEFINICIÓN COMIENZA HOY
-      </div>
-    );
-  }
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=dom, 1=lun...
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+
+  const weekSessions = sessions.filter(s => new Date(s.date) >= monday);
+  const done = weekSessions.length;
+  const pct = Math.min(done / goal, 1);
+
+  const dots = Array.from({ length: goal }, (_, i) => i < done);
+
   return (
-    <div className="phase-badge">
-      <span className="phase-dot cut"></span>
-      DEFINICIÓN
+    <div className="weekly-progress-card">
+      <div className="weekly-progress-header">
+        <span className="weekly-progress-label">OBJETIVO SEMANAL</span>
+        <span className="weekly-progress-count">{done}<span className="weekly-progress-goal">/{goal}</span></span>
+      </div>
+      <div className="weekly-dots">
+        {dots.map((filled, i) => (
+          <div key={i} className={`weekly-dot ${filled ? 'filled' : ''}`} />
+        ))}
+      </div>
+      <div className="weekly-bar-track">
+        <div className="weekly-bar-fill" style={{ width: `${pct * 100}%` }} />
+      </div>
+      {done >= goal && (
+        <div className="weekly-goal-achieved">Objetivo cumplido esta semana</div>
+      )}
     </div>
   );
 }
@@ -59,7 +66,6 @@ function WorkoutCard({ day, dayIndex, isNext, lastDate, onClick }) {
 }
 
 export function HomeView({ sessions, settings, activeRoutine, onOpenWorkout, onGoToRoutines }) {
-  // Sin rutina activa
   if (!activeRoutine) {
     return (
       <div className="page">
@@ -80,31 +86,10 @@ export function HomeView({ sessions, settings, activeRoutine, onOpenWorkout, onG
   const nextDayIndex = getNextWorkoutDayIndex(sessions, days.length);
   const others = days.map((_, i) => i).filter(i => i !== nextDayIndex);
 
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const recentCount = sessions.filter(s => new Date(s.date) >= sevenDaysAgo).length;
-
   return (
     <div className="page">
-      {/* Stats */}
-      <div className="big-num-row">
-        <div className="big-num-card">
-          <div className="big-num">
-            {settings.bodyWeight}<span className="small">kg</span>
-          </div>
-          <div className="big-num-label">Peso corporal</div>
-        </div>
-        <div className="big-num-card">
-          <div className="big-num">{recentCount}</div>
-          <div className="big-num-label">Sesiones / 7d</div>
-        </div>
-      </div>
+      <WeeklyProgress sessions={sessions} weeklyGoal={settings.weeklyGoal} />
 
-      <div style={{ marginBottom: 16 }}>
-        <PhaseBadge phase={settings.phase} cutStart={settings.cutStart} />
-      </div>
-
-      {/* Rutina activa + botón cambiar */}
       <div className="routine-header-row">
         <div className="routine-header-name">{activeRoutine.name}</div>
         <button className="routine-change-btn" onClick={onGoToRoutines}>

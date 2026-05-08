@@ -1,9 +1,108 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from 'chart.js';
 import { getExerciseHistory } from '../lib/workouts';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
+
+const DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function SessionSummary({ session }) {
+  return (
+    <div className="cal-summary">
+      {session.exercises.map((ex, i) => {
+        const validSets = ex.sets.filter(s => s.kg && s.reps);
+        if (!validSets.length) return null;
+        const maxKg = Math.max(...validSets.map(s => parseFloat(s.kg) || 0));
+        const totalVol = validSets.reduce((acc, s) => acc + (parseFloat(s.kg) || 0) * (parseInt(s.reps) || 0), 0);
+        return (
+          <div key={i} className="cal-summary-row">
+            <span className="cal-summary-name">{ex.name}</span>
+            <span className="cal-summary-stats">{validSets.length} series · {maxKg}kg top · {totalVol}kg vol</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SessionCalendar({ sessions }) {
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [selectedDate, setSelectedDate] = useState(null);
+
+  const sessionsByDay = useMemo(() => {
+    const map = new Map();
+    for (const s of sessions) {
+      const d = new Date(s.date);
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        const day = d.getDate();
+        if (!map.has(day)) map.set(day, []);
+        map.get(day).push(s);
+      }
+    }
+    return map;
+  }, [sessions, year, month]);
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const offset = (firstDay + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells = [];
+  for (let i = 0; i < offset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const isToday = (d) => d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+
+  const prevMonth = () => {
+    setSelectedDate(null);
+    if (month === 0) { setMonth(11); setYear(y => y - 1); }
+    else setMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    setSelectedDate(null);
+    if (month === 11) { setMonth(0); setYear(y => y + 1); }
+    else setMonth(m => m + 1);
+  };
+
+  const handleDayClick = (d) => {
+    if (!d || !sessionsByDay.has(d)) return;
+    setSelectedDate(prev => prev === d ? null : d);
+  };
+
+  const selectedSessions = selectedDate ? (sessionsByDay.get(selectedDate) ?? []) : [];
+
+  return (
+    <div className="cal-card">
+      <div className="cal-nav">
+        <button className="cal-nav-btn" onClick={prevMonth}>‹</button>
+        <span className="cal-month-label">{MONTHS[month]} {year}</span>
+        <button className="cal-nav-btn" onClick={nextMonth}>›</button>
+      </div>
+      <div className="cal-grid">
+        {DAYS.map(d => <div key={d} className="cal-day-header">{d}</div>)}
+        {cells.map((d, i) => (
+          <div
+            key={i}
+            onClick={() => handleDayClick(d)}
+            className={[
+              'cal-day',
+              !d ? 'empty' : '',
+              d && sessionsByDay.has(d) ? 'has-session' : '',
+              d && isToday(d) ? 'today' : '',
+              d && selectedDate === d ? 'selected' : '',
+            ].join(' ')}
+          >
+            {d || ''}
+          </div>
+        ))}
+      </div>
+      {selectedSessions.map((s, i) => <SessionSummary key={i} session={s} />)}
+    </div>
+  );
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
@@ -121,6 +220,7 @@ export function HistoryView({ sessions }) {
   if (sorted.length === 0) {
     return (
       <div className="page">
+        <SessionCalendar sessions={sessions} />
         <div className="section-label">Progresión por ejercicio</div>
         <div className="empty-state">
           <div className="empty-state-text">
@@ -134,6 +234,7 @@ export function HistoryView({ sessions }) {
 
   return (
     <div className="page">
+      <SessionCalendar sessions={sessions} />
       <div className="section-label">Progresión por ejercicio</div>
       {sorted.map(([name, info]) => (
         <div className="exercise-list-item" key={name} onClick={() => setSelectedExercise(name)}>

@@ -1,7 +1,23 @@
-import { useRef } from 'react';
+import { useRef, useCallback } from 'react';
 import { parseJefitCSV } from '../lib/jefit-import';
 import { exportAllData, importAllData, clearAllSessions, bulkAddSessions } from '../lib/storage';
 import { supabase } from '../lib/supabase';
+import { useDragInput } from '../lib/useDragInput';
+
+function DragNumberInput({ value, onChange, step = 1, min = 0, placeholder }) {
+  const handleChange = useCallback((v) => onChange(parseFloat(v) || 0), [onChange]);
+  const drag = useDragInput({ value: String(value), onChange: handleChange, step, min });
+  return (
+    <input
+      type="number"
+      className="setting-input"
+      value={value || ''}
+      onChange={e => onChange(parseFloat(e.target.value) || 0)}
+      placeholder={placeholder}
+      {...drag}
+    />
+  );
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
@@ -71,17 +87,32 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
         style={{ display: 'none' }}
       />
 
-      <div className="section-label">Configuración</div>
+      <div className="section-label">Perfil</div>
       <div className="setting-card">
         <div className="setting-row">
           <div className="setting-label">Peso corporal</div>
-          <input
-            type="number"
-            className="setting-input"
-            value={settings.bodyWeight}
-            onChange={e => onSettingsChange({ ...settings, bodyWeight: parseFloat(e.target.value) || 0 })}
-            step="0.1"
-          />
+          <div className="setting-input-unit">
+            <DragNumberInput
+              value={settings.bodyWeight}
+              onChange={v => onSettingsChange({ ...settings, bodyWeight: v })}
+              step={0.5}
+              min={0}
+            />
+            <span className="setting-unit">kg</span>
+          </div>
+        </div>
+        <div className="setting-row">
+          <div className="setting-label">Altura</div>
+          <div className="setting-input-unit">
+            <DragNumberInput
+              value={settings.height || ''}
+              onChange={v => onSettingsChange({ ...settings, height: Math.round(v) })}
+              step={1}
+              min={0}
+              placeholder="175"
+            />
+            <span className="setting-unit">cm</span>
+          </div>
         </div>
         <div className="setting-row">
           <div className="setting-label">Fase actual</div>
@@ -91,18 +122,33 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
             onChange={e => onSettingsChange({ ...settings, phase: e.target.value })}
           >
             <option value="bulk">Volumen</option>
+            <option value="maintenance">Mantenimiento</option>
             <option value="cut">Definición</option>
           </select>
         </div>
+        {settings.phase === 'bulk' && (
+          <div className="setting-row">
+            <div className="setting-label">Inicio definición</div>
+            <input
+              type="date"
+              className="setting-input"
+              style={{ width: 140 }}
+              value={settings.cutStart}
+              onChange={e => onSettingsChange({ ...settings, cutStart: e.target.value })}
+            />
+          </div>
+        )}
         <div className="setting-row">
-          <div className="setting-label">Inicio definición</div>
-          <input
-            type="date"
-            className="setting-input"
-            style={{ width: 140 }}
-            value={settings.cutStart}
-            onChange={e => onSettingsChange({ ...settings, cutStart: e.target.value })}
-          />
+          <div className="setting-label">Objetivo semanal</div>
+          <div className="setting-input-unit">
+            <DragNumberInput
+              value={settings.weeklyGoal || 4}
+              onChange={v => onSettingsChange({ ...settings, weeklyGoal: Math.min(7, Math.max(1, Math.round(v))) })}
+              step={1}
+              min={1}
+            />
+            <span className="setting-unit">días</span>
+          </div>
         </div>
       </div>
 

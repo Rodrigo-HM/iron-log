@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { getExerciseHistory, DEFAULT_INCREMENT } from '../lib/workouts';
 import { generateSuggestion, calcBackoffWeight, EFFORT_LEVELS } from '../lib/progression';
+import { useDragInput } from '../lib/useDragInput';
 
 // ─── BEEP ─────────────────────────────────────────────────────────────────
 
@@ -19,53 +20,6 @@ function beep({ frequency = 880, duration = 80, volume = 0.3, type = 'sine' } = 
     osc.stop(ctx.currentTime + duration / 1000);
     osc.onended = () => ctx.close();
   } catch {}
-}
-
-// ─── DRAG INPUT HOOK ──────────────────────────────────────────────────────
-// Deslizar arriba/abajo sobre un input numérico incrementa/decrementa el valor.
-// tap normal → abre teclado. Movimiento ≥ DRAG_THRESHOLD px → modo drag.
-
-const DRAG_THRESHOLD = 5;
-const DRAG_STEP_PX = 20;
-
-function useDragInput({ value, fallback = 0, onChange, step = 1, min = 0 }) {
-  const touchStartY = useRef(null);
-  const touchStartValue = useRef(null);
-  const isDragging = useRef(false);
-  const accPx = useRef(0);
-
-  const onTouchStart = useCallback((e) => {
-    touchStartY.current = e.touches[0].clientY;
-    const parsed = parseFloat(value);
-    touchStartValue.current = isNaN(parsed) ? (parseFloat(fallback) || 0) : parsed;
-    isDragging.current = false;
-    accPx.current = 0;
-  }, [value, fallback]);
-
-  const onTouchMove = useCallback((e) => {
-    if (touchStartY.current === null) return;
-    const dy = touchStartY.current - e.touches[0].clientY; // positivo = arriba = aumentar
-    if (!isDragging.current && Math.abs(dy) >= DRAG_THRESHOLD) {
-      isDragging.current = true;
-    }
-    if (!isDragging.current) return;
-    e.preventDefault();
-    accPx.current = dy;
-    const steps = Math.floor(Math.abs(accPx.current) / DRAG_STEP_PX) * Math.sign(accPx.current);
-    const newVal = Math.max(min, Math.round((touchStartValue.current + steps * step) / step) * step);
-    // Redondear a 2 decimales para evitar artefactos de punto flotante
-    onChange(String(Math.round(newVal * 100) / 100));
-  }, [onChange, step, min]);
-
-  const onTouchEnd = useCallback((e) => {
-    if (isDragging.current) {
-      e.preventDefault(); // evita que abra el teclado si fue drag
-    }
-    touchStartY.current = null;
-    isDragging.current = false;
-  }, []);
-
-  return { onTouchStart, onTouchMove, onTouchEnd };
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────

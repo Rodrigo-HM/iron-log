@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import { saveRoutine, deleteRoutine, setActiveRoutine } from '../lib/storage';
 import { WORKOUTS } from '../lib/workouts';
-import { searchExercises } from '../lib/exercise-library';
+import { searchExercises, EXERCISE_LIBRARY } from '../lib/exercise-library';
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor,
+  useSensor, useSensors, DragOverlay
+} from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const LOAD_TYPES = [
   { value: 'bar', label: 'Barra' },
@@ -17,6 +25,23 @@ const EXERCISE_TYPES = [
 
 const TYPE_LABEL = { basic: 'Básico', compound: 'Compuesto', iso: 'Aislamiento' };
 const LOAD_LABEL = { bar: 'Barra', dumbbell: 'Mancuernas', machine: 'Máquina' };
+
+const LIBRARY_MAP = Object.fromEntries(EXERCISE_LIBRARY.map(e => [e.name, e]));
+
+function inferFocus(exercises) {
+  const primary = new Set();
+  const secondary = new Set();
+  for (const ex of exercises) {
+    if (!ex.name) continue;
+    const def = LIBRARY_MAP[ex.name];
+    if (def?.muscle) primary.add(def.muscle);
+    if (def?.muscles) def.muscles.forEach(m => secondary.add(m));
+  }
+  // Secundarios solo si no son ya primarios
+  const extra = [...secondary].filter(m => !primary.has(m));
+  const all = [...primary, ...extra];
+  return all.join(' · ');
+}
 
 function buildDefaultRoutine() {
   return {
@@ -92,9 +117,11 @@ function ExercisePicker({ onSelect, onCancel }) {
               </div>
             );
           })}
-          <button className="picker-custom-btn" onClick={() => onSelect(null)}>
-            + Nombre personalizado
-          </button>
+          {results.length === 0 && query.trim() && (
+            <button className="picker-custom-btn" onClick={() => onSelect({ custom: true, name: query.trim() })}>
+              + Añadir «{query.trim()}»
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -109,12 +136,12 @@ function ExerciseEditor({ ex, onChange, onRemove }) {
 
   const handlePickerSelect = (libraryEx) => {
     setShowPicker(false);
-    if (!libraryEx) return; // personalizado: solo cierra picker, deja nombre vacío para escribir
+    if (!libraryEx) return;
     onChange({
       ...ex,
       name: libraryEx.name,
-      type: libraryEx.type,
-      loadType: libraryEx.loadType,
+      type: libraryEx.custom ? 'compound' : libraryEx.type,
+      loadType: libraryEx.custom ? 'bar' : libraryEx.loadType,
       scheme: libraryEx.scheme ?? null,
       sets: libraryEx.sets ?? 3,
       reps: libraryEx.reps ?? [8, 10],
@@ -136,10 +163,10 @@ function ExerciseEditor({ ex, onChange, onRemove }) {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
         <button
           className="remove-set-btn"
-          style={{ width: 32, flexShrink: 0, fontSize: 15 }}
+          style={{ width: 32, height: 32, flexShrink: 0, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0, marginTop: 0 }}
           title="Elegir de la biblioteca"
           onClick={() => setShowPicker(true)}
-        >≡</button>
+        >▾</button>
         <input
           className="setting-input"
           style={{ flex: 1, width: 'auto', textAlign: 'left', padding: '8px 10px' }}
@@ -148,7 +175,7 @@ function ExerciseEditor({ ex, onChange, onRemove }) {
           onChange={e => onChange({ ...ex, name: e.target.value })}
           onFocus={() => { if (!ex.name) setShowPicker(true); }}
         />
-        <button className="remove-set-btn" style={{ width: 32, flexShrink: 0 }} onClick={onRemove}>×</button>
+        <button className="remove-set-btn" style={{ width: 32, height: 32, flexShrink: 0, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0, marginTop: 0 }} onClick={onRemove}>×</button>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
         <div>
@@ -189,50 +216,126 @@ function ExerciseEditor({ ex, onChange, onRemove }) {
         </div>
       </div>
 
-      {isBasic ? (
+      {isBasic && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 13, color: 'var(--text-dim)', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={ex.scheme === 'topback'}
+            onChange={e => onChange({ ...ex, scheme: e.target.checked ? 'topback' : null, sets: ex.sets ?? 3, reps: ex.reps ?? [4, 6] })}
+          />
+          Top set + back offs
+        </label>
+      )}
+
+      {isBasic && ex.scheme === 'topback' ? (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
+            <div>
+              <div className="routine-field-label">Top set reps (ej: 4-6)</div>
+              <input
+                className="setting-input"
+                style={{ width: '100%', textAlign: 'left', padding: '7px 8px' }}
+                value={ex.topReps ? ex.topReps.join('-') : '4-6'}
+                placeholder="4-6"
+                onChange={e => {
+                  const parts = e.target.value.split('-').map(Number).filter(n => !isNaN(n));
+                  if (parts.length === 2) onChange({ ...ex, topReps: parts });
+                }}
+              />
+            </div>
+            <div>
+              <div className="routine-field-label">Back off reps (ej: 6-8)</div>
+              <input
+                className="setting-input"
+                style={{ width: '100%', textAlign: 'left', padding: '7px 8px' }}
+                value={ex.backReps ? ex.backReps.join('-') : '6-8'}
+                placeholder="6-8"
+                onChange={e => {
+                  const parts = e.target.value.split('-').map(Number).filter(n => !isNaN(n));
+                  if (parts.length === 2) onChange({ ...ex, backReps: parts });
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
+            <div>
+              <div className="routine-field-label">Descanso top→back (seg)</div>
+              <input
+                type="number"
+                className="setting-input"
+                style={{ width: '100%' }}
+                value={ex.restTopToBackoff ?? 240}
+                min={30}
+                step={15}
+                onChange={e => onChange({ ...ex, restTopToBackoff: parseInt(e.target.value) || 240 })}
+              />
+            </div>
+            <div>
+              <div className="routine-field-label">Descanso entre series (seg)</div>
+              <input
+                type="number"
+                className="setting-input"
+                style={{ width: '100%' }}
+                value={ex.restBetweenSets ?? 150}
+                min={30}
+                step={15}
+                onChange={e => onChange({ ...ex, restBetweenSets: parseInt(e.target.value) || 150 })}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
           <div>
-            <div className="routine-field-label">Top set reps (ej: 4-6)</div>
+            <div className="routine-field-label">Reps (ej: 8-10)</div>
             <input
               className="setting-input"
               style={{ width: '100%', textAlign: 'left', padding: '7px 8px' }}
-              value={ex.topReps ? ex.topReps.join('-') : '4-6'}
-              placeholder="4-6"
+              value={ex.reps ? ex.reps.join('-') : '8-10'}
+              placeholder="8-10"
               onChange={e => {
                 const parts = e.target.value.split('-').map(Number).filter(n => !isNaN(n));
-                if (parts.length === 2) onChange({ ...ex, topReps: parts });
+                if (parts.length === 2) onChange({ ...ex, reps: parts });
               }}
             />
           </div>
           <div>
-            <div className="routine-field-label">Back off reps (ej: 6-8)</div>
+            <div className="routine-field-label">Descanso (seg)</div>
             <input
+              type="number"
               className="setting-input"
-              style={{ width: '100%', textAlign: 'left', padding: '7px 8px' }}
-              value={ex.backReps ? ex.backReps.join('-') : '6-8'}
-              placeholder="6-8"
-              onChange={e => {
-                const parts = e.target.value.split('-').map(Number).filter(n => !isNaN(n));
-                if (parts.length === 2) onChange({ ...ex, backReps: parts });
-              }}
+              style={{ width: '100%' }}
+              value={ex.restBetweenSets ?? (ex.type === 'iso' ? 120 : 150)}
+              min={30}
+              step={15}
+              onChange={e => onChange({ ...ex, restBetweenSets: parseInt(e.target.value) || 120 })}
             />
           </div>
         </div>
-      ) : (
-        <div style={{ marginTop: 6 }}>
-          <div className="routine-field-label">Reps (ej: 8-10)</div>
-          <input
-            className="setting-input"
-            style={{ width: '100%', textAlign: 'left', padding: '7px 8px' }}
-            value={ex.reps ? ex.reps.join('-') : '8-10'}
-            placeholder="8-10"
-            onChange={e => {
-              const parts = e.target.value.split('-').map(Number).filter(n => !isNaN(n));
-              if (parts.length === 2) onChange({ ...ex, reps: parts });
-            }}
-          />
-        </div>
       )}
+    </div>
+  );
+}
+
+// ─── SORTABLE EXERCISE ────────────────────────────────────────────────────
+
+function SortableExercise({ id, ex, onChange, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={{ ...style, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+      <button
+        className="drag-handle"
+        {...attributes}
+        {...listeners}
+      >☰</button>
+      <div style={{ flex: 1 }}>
+        <ExerciseEditor ex={ex} onChange={onChange} onRemove={onRemove} />
+      </div>
     </div>
   );
 }
@@ -240,17 +343,33 @@ function ExerciseEditor({ ex, onChange, onRemove }) {
 // ─── DAY EDITOR ──────────────────────────────────────────────────────────
 
 function DayEditor({ day, dayIndex, onChange, onRemove, canRemove }) {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
+
+  const updateDay = (newDay) => {
+    onChange({ ...newDay, focus: inferFocus(newDay.exercises) });
+  };
+
   const updateExercise = (i, ex) => {
     const exercises = [...day.exercises];
     exercises[i] = ex;
-    onChange({ ...day, exercises });
+    updateDay({ ...day, exercises });
   };
 
-  const addExercise = () => onChange({ ...day, exercises: [...day.exercises, emptyExercise()] });
+  const addExercise = () => updateDay({ ...day, exercises: [...day.exercises, emptyExercise()] });
 
   const removeExercise = (i) => {
     const exercises = day.exercises.filter((_, idx) => idx !== i);
-    onChange({ ...day, exercises: exercises.length > 0 ? exercises : [emptyExercise()] });
+    updateDay({ ...day, exercises: exercises.length > 0 ? exercises : [emptyExercise()] });
+  };
+
+  const handleDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const oldIdx = day.exercises.findIndex((_, i) => `ex-${i}` === active.id);
+    const newIdx = day.exercises.findIndex((_, i) => `ex-${i}` === over.id);
+    updateDay({ ...day, exercises: arrayMove(day.exercises, oldIdx, newIdx) });
   };
 
   return (
@@ -265,25 +384,31 @@ function DayEditor({ day, dayIndex, onChange, onRemove, canRemove }) {
           onChange={e => onChange({ ...day, name: e.target.value })}
         />
         {canRemove && (
-          <button className="remove-set-btn" style={{ width: 32, flexShrink: 0 }} onClick={onRemove}>×</button>
+          <button className="remove-set-btn" style={{ width: 32, height: 32, flexShrink: 0, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0, marginTop: 0 }} onClick={onRemove}>×</button>
         )}
       </div>
-      <input
-        className="setting-input"
-        style={{ width: '100%', textAlign: 'left', padding: '7px 10px', marginBottom: 10, fontSize: 12 }}
-        placeholder="Grupos musculares (ej: Pecho · Hombro · Tríceps)"
-        value={day.focus}
-        onChange={e => onChange({ ...day, focus: e.target.value })}
-      />
+      {day.focus ? (
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 10, paddingLeft: 2 }}>
+          {day.focus}
+        </div>
+      ) : null}
 
-      {day.exercises.map((ex, i) => (
-        <ExerciseEditor
-          key={i}
-          ex={ex}
-          onChange={ex => updateExercise(i, ex)}
-          onRemove={() => removeExercise(i)}
-        />
-      ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext
+          items={day.exercises.map((_, i) => `ex-${i}`)}
+          strategy={verticalListSortingStrategy}
+        >
+          {day.exercises.map((ex, i) => (
+            <SortableExercise
+              key={`ex-${i}`}
+              id={`ex-${i}`}
+              ex={ex}
+              onChange={ex => updateExercise(i, ex)}
+              onRemove={() => removeExercise(i)}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       <button className="add-set-btn" style={{ marginTop: 6 }} onClick={addExercise}>
         + Ejercicio

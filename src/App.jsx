@@ -21,8 +21,10 @@ import './styles/styles.css';
 
 const DEFAULT_SETTINGS = {
   bodyWeight: 87,
+  height: 0,
   phase: 'bulk',
-  cutStart: '2026-05-15'
+  cutStart: '2026-05-15',
+  weeklyGoal: 4
 };
 
 export default function App() {
@@ -63,10 +65,12 @@ export default function App() {
           refreshRoutines()
         ]);
         setSessions(allSessions);
-        const bodyWeight = await getSetting('body_weight', DEFAULT_SETTINGS.bodyWeight);
-        const phase      = await getSetting('phase', DEFAULT_SETTINGS.phase);
-        const cutStart   = await getSetting('cut_start', DEFAULT_SETTINGS.cutStart);
-        setSettings({ bodyWeight, phase, cutStart });
+        const bodyWeight  = await getSetting('body_weight', DEFAULT_SETTINGS.bodyWeight);
+        const height      = await getSetting('height', DEFAULT_SETTINGS.height);
+        const phase       = await getSetting('phase', DEFAULT_SETTINGS.phase);
+        const cutStart    = await getSetting('cut_start', DEFAULT_SETTINGS.cutStart);
+        const weeklyGoal  = await getSetting('weekly_goal', DEFAULT_SETTINGS.weeklyGoal);
+        setSettings({ bodyWeight, height, phase, cutStart, weeklyGoal });
       } catch (err) {
         console.error('Error loading data:', err);
       }
@@ -82,8 +86,10 @@ export default function App() {
   const handleSettingsChange = async (newSettings) => {
     setSettings(newSettings);
     await setSetting('body_weight', newSettings.bodyWeight);
+    await setSetting('height', newSettings.height);
     await setSetting('phase', newSettings.phase);
     await setSetting('cut_start', newSettings.cutStart);
+    await setSetting('weekly_goal', newSettings.weeklyGoal);
   };
 
   const handleTabChange = (newTab) => {

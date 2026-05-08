@@ -272,9 +272,8 @@ button { font-family: inherit; }
 .session-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  position: relative;
   margin-bottom: 18px;
-  gap: 12px;
 }
 
 .back-btn {
@@ -293,15 +292,18 @@ button { font-family: inherit; }
   font-size: 28px;
   letter-spacing: 0.02em;
   line-height: 1;
-  flex: 1;
-  text-align: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .session-chrono {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 16px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--accent);
+  margin-left: auto;
   letter-spacing: 0.05em;
   min-width: 52px;
   text-align: right;
@@ -589,6 +591,26 @@ button { font-family: inherit; }
 
 .primary-btn:active { background: var(--accent-dim); }
 
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.google-btn:active { background: var(--surface-2); }
+
 .secondary-btn {
   background: var(--surface-2);
   color: var(--text);
@@ -633,6 +655,111 @@ button { font-family: inherit; }
 .toast.show {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* ─── SESSION CALENDAR ───────────────────────────────────────────── */
+.cal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px;
+  margin-bottom: 20px;
+}
+
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cal-month-label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.05em;
+}
+
+.cal-nav-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 8px;
+  line-height: 1;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-day-header {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: center;
+  padding-bottom: 4px;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  border-radius: 50%;
+}
+
+.cal-day.empty { pointer-events: none; }
+
+.cal-day.has-session {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.cal-day.today:not(.has-session) {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.cal-day.has-session { cursor: pointer; }
+
+.cal-day.selected {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+
+.cal-summary {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-summary-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cal-summary-stats {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
 }
 
 /* History list */
@@ -735,6 +862,58 @@ button { font-family: inherit; }
   border-radius: 3px;
   width: 100px;
   text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.setting-input::-webkit-outer-spin-button,
+.setting-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.setting-input-unit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.setting-unit {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+}
+
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
 }
 
 .setting-select {
@@ -761,6 +940,85 @@ button { font-family: inherit; }
   max-height: 400px;
   overflow-y: auto;
   line-height: 1.6;
+}
+
+/* ─── WEEKLY PROGRESS ────────────────────────────────────────────── */
+.weekly-progress-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.weekly-progress-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.weekly-progress-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.weekly-progress-count {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 32px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.weekly-progress-goal {
+  font-size: 20px;
+  color: var(--text-dim);
+}
+
+.weekly-dots {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.weekly-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.weekly-dot.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.weekly-bar-track {
+  height: 4px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.weekly-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.weekly-goal-achieved {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-top: 10px;
 }
 
 /* ─── ROUTINE HEADER (home) ──────────────────────────────────────── */
@@ -869,6 +1127,20 @@ button { font-family: inherit; }
   width: 24px;
   text-align: center;
 }
+
+.drag-handle {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 16px;
+  padding: 10px 4px;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.drag-handle:active { cursor: grabbing; }
 
 .routine-exercise-row {
   background: var(--surface-2);
