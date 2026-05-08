@@ -106,7 +106,7 @@ function fmtTime(sec) {
 
 // ─── REST TIMER ───────────────────────────────────────────────────────────
 
-function RestTimer({ seconds, onDone }) {
+function RestTimer({ seconds, onDone, hidden = false }) {
   const [remaining, setRemaining] = useState(seconds);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
@@ -116,12 +116,12 @@ function RestTimer({ seconds, onDone }) {
       setRemaining(r => {
         if (r <= 1) {
           clearInterval(interval);
-          beep({ frequency: 1046, duration: 300, volume: 0.4 });
+          beep({ frequency: 1760, duration: 300, volume: 0.4 });
           setTimeout(() => onDoneRef.current?.(), 0);
           return 0;
         }
         if (r <= 4) {
-          beep({ frequency: 660, duration: 60, volume: 0.25 });
+          beep({ frequency: 880, duration: 180, volume: 0.35 });
         }
         return r - 1;
       });
@@ -134,7 +134,7 @@ function RestTimer({ seconds, onDone }) {
   const dashoffset = circumference * (1 - pct);
 
   return (
-    <div className="rest-timer">
+    <div className="rest-timer" style={hidden ? { display: 'none' } : undefined}>
       <svg width="64" height="64" viewBox="0 0 64 64">
         <circle cx="32" cy="32" r="26" fill="none" stroke="var(--border)" strokeWidth="4" />
         <circle
@@ -271,7 +271,7 @@ function SetRow({ set, si, label, useEffort, started, isActive, prev, loadType, 
   const canComplete = set.kg !== '' && set.reps !== '' && (!useEffort || set.effort);
 
   return (
-    <div className={`set-block ${set.isTopSet ? 'top-set-row' : ''} ${!started ? 'set-locked' : !isActive ? 'set-done' : ''}`}>
+    <div className={`set-block ${set.isTopSet ? 'top-set-row' : ''} ${!started ? 'set-locked' : !isActive ? 'set-done' : 'set-active'}`}>
       <div className="set-row">
         <span className="set-num">{label}</span>
         <input
@@ -317,9 +317,7 @@ function SetRow({ set, si, label, useEffort, started, isActive, prev, loadType, 
   );
 }
 
-function ExerciseCard({ exercise, exDef, history, lastSession, started, onUpdateSet, onAddSet, onRemoveSet }) {
-  const [timerSeconds, setTimerSeconds] = useState(null);
-  const [timerKey, setTimerKey] = useState(0);
+function ExerciseCard({ exercise, exDef, history, lastSession, started, expanded, isActive, onToggle, timerSeconds, timerKey, onSetDone, onTimerDone, onUpdateSet, onAddSet, onRemoveSet }) {
   const [activeSet, setActiveSet] = useState(0);
 
   const suggestion = useMemo(() => {
@@ -374,81 +372,96 @@ function ExerciseCard({ exercise, exDef, history, lastSession, started, onUpdate
     }
   }, [exercise.sets, onUpdateSet]);
 
-  const startTimer = (sec) => {
-    setTimerSeconds(sec);
-    setTimerKey(k => k + 1);
-  };
-
   const handleSetDone = (si) => {
     const set = exercise.sets[si];
+    const isLast = si === exercise.sets.length - 1;
     setActiveSet(si + 1);
-    if (set.isTopSet) {
-      startTimer(exDef.restTopToBackoff ?? 240);
-    } else {
-      startTimer(exDef.restBetweenSets ?? (exercise.type === 'iso' ? 120 : 150));
-    }
+    const restSec = set.isTopSet
+      ? (exDef.restTopToBackoff ?? 240)
+      : (exDef.restBetweenSets ?? (exercise.type === 'iso' ? 120 : 150));
+    onSetDone(isLast, restSec);
   };
 
   const canAddSets = exercise.type !== 'basic';
 
+  const doneSets = exercise.sets.filter(s => s.kg !== '' && s.reps !== '').length;
+  const totalSets = exercise.sets.length;
+  const isCompleted = doneSets === totalSets && totalSets > 0;
+
   return (
-    <div className="exercise-card">
-      <div className="exercise-header">
-        <div className="exercise-name">{exercise.name}</div>
-        <span className={`exercise-tag ${tagClass}`}>{tagText}</span>
-      </div>
-      <div className="exercise-body">
-        <ExerciseTarget exDef={exDef} />
-        <SuggestionBox suggestion={suggestion} exDef={exDef} />
-
-        {timerSeconds !== null && (
-          <RestTimer
-            key={timerKey}
-            seconds={timerSeconds}
-            onDone={() => setTimerSeconds(null)}
-          />
-        )}
-
-        <div className="set-row header">
-          <span></span>
-          <span className="set-label">Kg</span>
-          <span className="set-label">Reps</span>
-          <span></span>
+    <div className={`exercise-card ${expanded ? 'expanded' : 'collapsed'} ${!expanded && isActive ? 'active-collapsed' : ''} ${!expanded && isCompleted && !isActive ? 'completed-collapsed' : ''}`}>
+      <div className="exercise-header" onClick={onToggle} style={{ cursor: 'pointer' }}>
+        <div>
+          <div className="exercise-name">{exercise.name}</div>
+          {!expanded && (
+            <div className="exercise-collapsed-info">
+              {isCompleted ? <span className="collapsed-done">✓ completado</span> : doneSets > 0 ? `${doneSets}/${totalSets} series` : `${totalSets} series`}
+              {isActive && timerSeconds !== null && <span className="collapsed-timer"> · descansando</span>}
+            </div>
+          )}
         </div>
-
-        {exercise.sets.map((set, si) => {
-          const isTopSet = set.isTopSet;
-          const isBackOff = set.isBackOff;
-          const backoffIdx = exercise.sets.filter((s, idx) => s.isBackOff && idx <= si).length;
-          const label = isTopSet ? 'TOP' : isBackOff ? `B${backoffIdx}` : si + 1;
-          const prev = lastSession?.sets?.[si];
-
-          return (
-            <SetRow
-              key={si}
-              set={set}
-              si={si}
-              label={label}
-              useEffort={useEffort}
-              started={started}
-              isActive={si === activeSet}
-              prev={prev}
-              loadType={exDef.loadType}
-              onUpdate={handleUpdateSet}
-              onDone={() => handleSetDone(si)}
-            />
-          );
-        })}
-
-        {canAddSets && started && (
-          <div className="set-actions">
-            <button className="add-set-btn" onClick={onAddSet}>+ Serie</button>
-            {exercise.sets.length > 1 && (
-              <button className="remove-set-btn" onClick={onRemoveSet}>− Última</button>
-            )}
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className={`exercise-tag ${tagClass}`}>{tagText}</span>
+          <span className="exercise-chevron">{expanded ? '▲' : '▼'}</span>
+        </div>
       </div>
+
+      {timerSeconds !== null && (
+        <RestTimer
+          key={timerKey}
+          seconds={timerSeconds}
+          onDone={onTimerDone}
+          hidden={!expanded}
+        />
+      )}
+
+      {expanded && (
+        <div className="exercise-body">
+          <ExerciseTarget exDef={exDef} />
+          <SuggestionBox suggestion={suggestion} exDef={exDef} />
+
+
+          <div className="set-row header">
+            <span></span>
+            <span className="set-label">Kg</span>
+            <span className="set-label">Reps</span>
+            <span></span>
+          </div>
+
+          {exercise.sets.map((set, si) => {
+            const isTopSet = set.isTopSet;
+            const isBackOff = set.isBackOff;
+            const backoffIdx = exercise.sets.filter((s, idx) => s.isBackOff && idx <= si).length;
+            const label = isTopSet ? 'TOP' : isBackOff ? `B${backoffIdx}` : si + 1;
+            const prev = lastSession?.sets?.[si];
+
+            return (
+              <SetRow
+                key={si}
+                set={set}
+                si={si}
+                label={label}
+                useEffort={useEffort}
+                started={started}
+                isActive={si === activeSet}
+                prev={prev}
+                loadType={exDef.loadType}
+                onUpdate={handleUpdateSet}
+                onDone={() => handleSetDone(si)}
+              />
+            );
+          })}
+
+          {canAddSets && started && (
+            <div className="set-actions">
+              <button className="add-set-btn" onClick={onAddSet}>+ Serie</button>
+              {exercise.sets.length > 1 && (
+                <button className="remove-set-btn" onClick={onRemoveSet}>− Última</button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -461,6 +474,8 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
   );
   const [started, setStarted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [timerState, setTimerState] = useState({ seconds: null, key: 0, exIdx: null });
+  const [expandedIdx, setExpandedIdx] = useState(0);
   const startTimeRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -544,6 +559,18 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
     });
   };
 
+  const makeSetDoneHandler = (exIdx) => (isLast, restSec) => {
+    if (isLast) {
+      const nextIdx = session.exercises.findIndex((_, i) => i > exIdx);
+      setTimerState(prev => ({ seconds: restSec, key: prev.key + 1, exIdx: nextIdx !== -1 ? nextIdx : null }));
+      if (nextIdx !== -1) setExpandedIdx(nextIdx);
+    } else {
+      setTimerState(prev => ({ seconds: restSec, key: prev.key + 1, exIdx }));
+    }
+  };
+
+  const handleTimerDone = () => setTimerState({ seconds: null, key: 0, exIdx: null });
+
   const handleSave = () => {
     clearInterval(intervalRef.current);
     const filtered = JSON.parse(JSON.stringify(session));
@@ -587,6 +614,13 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
             history={history}
             lastSession={lastSession}
             started={started}
+            expanded={expandedIdx === i}
+            isActive={timerState.exIdx === i || (timerState.exIdx === null && expandedIdx === i)}
+            onToggle={() => setExpandedIdx(expandedIdx === i ? -1 : i)}
+            timerSeconds={timerState.exIdx === i ? timerState.seconds : null}
+            timerKey={timerState.exIdx === i ? timerState.key : 0}
+            onSetDone={makeSetDoneHandler(i)}
+            onTimerDone={handleTimerDone}
             onUpdateSet={makeUpdateSet(i)}
             onAddSet={() => addSet(i)}
             onRemoveSet={() => removeSet(i)}
