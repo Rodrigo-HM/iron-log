@@ -24,9 +24,9 @@ export const WORKOUTS = {
         restBetweenSets: 150
       },
       {
-        name: 'Press inclinado mancuernas',
+        name: 'Press inclinado máquina',
         type: 'compound',
-        loadType: 'dumbbell',
+        loadType: 'machine',
         reps: [8, 10],
         sets: 3,
         restBetweenSets: 150
@@ -40,11 +40,11 @@ export const WORKOUTS = {
         restBetweenSets: 120
       },
       {
-        name: 'Elevaciones laterales mancuerna',
+        name: 'Elevaciones laterales polea',
         type: 'iso',
-        loadType: 'dumbbell',
-        reps: [10, 12],
-        sets: 2,
+        loadType: 'machine',
+        reps: [8, 10],
+        sets: 3,
         restBetweenSets: 120
       },
       {
@@ -53,22 +53,22 @@ export const WORKOUTS = {
         loadType: 'dumbbell',
         reps: [8, 10],
         sets: 3,
-        restBetweenSets: 150
+        restBetweenSets: 135
       },
       {
-        name: 'Extensión tríceps V-bar',
+        name: 'Press francés mancuerna',
+        type: 'iso',
+        loadType: 'dumbbell',
+        reps: [8, 10],
+        sets: 3,
+        restBetweenSets: 135
+      },
+      {
+        name: 'Extensión tríceps unilateral',
         type: 'iso',
         loadType: 'machine',
         reps: [10, 12],
-        sets: 2,
-        restBetweenSets: 120
-      },
-      {
-        name: 'Press francés',
-        type: 'iso',
-        loadType: 'bar',
-        reps: [10, 12],
-        sets: 2,
+        sets: 3,
         restBetweenSets: 120
       }
     ]
@@ -76,7 +76,7 @@ export const WORKOUTS = {
   2: {
     id: 2,
     name: 'Pull',
-    focus: 'Espalda · Bíceps',
+    focus: 'Espalda · Bíceps · Hombro',
     color: '#60a5fa',
     exercises: [
       {
@@ -99,35 +99,35 @@ export const WORKOUTS = {
         restBetweenSets: 150
       },
       {
-        name: 'Remo sentado máquina',
+        name: 'Remo sentado máquina unilateral',
         type: 'compound',
         loadType: 'machine',
-        reps: [8, 10],
+        reps: [10, 12],
         sets: 3,
-        restBetweenSets: 150
+        restBetweenSets: 135
       },
       {
-        name: 'Curl inclinado alternado',
+        name: 'Curl inclinado mancuerna',
         type: 'iso',
         loadType: 'dumbbell',
-        reps: [10, 12],
-        sets: 2,
-        restBetweenSets: 120
+        reps: [8, 10],
+        sets: 3,
+        restBetweenSets: 255
       },
       {
-        name: 'Curl Bayesian polea',
+        name: 'Curl martillo cuerda',
         type: 'iso',
         loadType: 'machine',
         reps: [10, 12],
-        sets: 2,
+        sets: 3,
         restBetweenSets: 120
       },
       {
         name: 'Pájaros máquina',
         type: 'iso',
         loadType: 'machine',
-        reps: [12, 15],
-        sets: 2,
+        reps: [10, 12],
+        sets: 3,
         restBetweenSets: 120
       }
     ]
@@ -135,7 +135,7 @@ export const WORKOUTS = {
   3: {
     id: 3,
     name: 'Piernas',
-    focus: 'Cuádriceps · Femoral · Gemelo',
+    focus: 'Cuádriceps · Glúteo · Femoral · Gemelo',
     color: '#4ade80',
     exercises: [
       {
@@ -177,8 +177,8 @@ export const WORKOUTS = {
         name: 'Gemelo máquina',
         type: 'iso',
         loadType: 'machine',
-        reps: [12, 15],
-        sets: 4,
+        reps: [10, 12],
+        sets: 3,
         restBetweenSets: 120
       }
     ]
@@ -186,7 +186,7 @@ export const WORKOUTS = {
   4: {
     id: 4,
     name: 'Hombro · Brazos',
-    focus: 'Press militar + brazos',
+    focus: 'Hombro · Bíceps · Tríceps · Pecho',
     color: '#fbbf24',
     exercises: [
       {
@@ -201,51 +201,43 @@ export const WORKOUTS = {
         restBetweenSets: 150
       },
       {
-        name: 'Elevaciones laterales mancuerna',
-        type: 'iso',
-        loadType: 'dumbbell',
-        reps: [10, 12],
-        sets: 2,
-        restBetweenSets: 120
-      },
-      {
         name: 'Elevaciones laterales polea',
         type: 'iso',
         loadType: 'machine',
         reps: [10, 12],
-        sets: 2,
+        sets: 3,
         restBetweenSets: 120
       },
       {
         name: 'Curl Scott máquina',
         type: 'iso',
         loadType: 'machine',
-        reps: [10, 12],
-        sets: 2,
+        reps: [8, 10],
+        sets: 3,
         restBetweenSets: 120
       },
       {
-        name: 'Curl martillo cuerda',
+        name: 'Curl Bayesian polea',
         type: 'iso',
         loadType: 'machine',
         reps: [10, 12],
-        sets: 2,
+        sets: 3,
         restBetweenSets: 120
       },
       {
-        name: 'Extensión tríceps V-bar',
-        type: 'iso',
-        loadType: 'machine',
-        reps: [10, 12],
-        sets: 2,
-        restBetweenSets: 120
+        name: 'Fondos tríceps',
+        type: 'compound',
+        loadType: 'bar',
+        reps: [8, 10],
+        sets: 3,
+        restBetweenSets: 150
       },
       {
         name: 'Extensión tríceps unilateral',
         type: 'iso',
         loadType: 'machine',
         reps: [10, 12],
-        sets: 2,
+        sets: 3,
         restBetweenSets: 120
       }
     ]
@@ -253,9 +245,33 @@ export const WORKOUTS = {
   5: {
     id: 5,
     name: 'Máquinas',
-    focus: 'Espalda · Pecho (volumen)',
+    focus: 'Pecho · Espalda · Hombro · Tríceps · Bíceps',
     color: '#a78bfa',
     exercises: [
+      {
+        name: 'Press inclinado mancuernas',
+        type: 'compound',
+        loadType: 'dumbbell',
+        reps: [6, 8],
+        sets: 3,
+        restBetweenSets: 160
+      },
+      {
+        name: 'Press banca máquina',
+        type: 'compound',
+        loadType: 'machine',
+        reps: [8, 10],
+        sets: 3,
+        restBetweenSets: 150
+      },
+      {
+        name: 'Cruce de poleas',
+        type: 'iso',
+        loadType: 'machine',
+        reps: [10, 12],
+        sets: 2,
+        restBetweenSets: 120
+      },
       {
         name: 'Jalón máquina',
         type: 'compound',
@@ -269,31 +285,15 @@ export const WORKOUTS = {
         type: 'compound',
         loadType: 'machine',
         reps: [8, 10],
-        sets: 4,
+        sets: 3,
         restBetweenSets: 150
       },
       {
-        name: 'Press banca máquina',
-        type: 'compound',
-        loadType: 'machine',
-        reps: [8, 10],
-        sets: 4,
-        restBetweenSets: 150
-      },
-      {
-        name: 'Aperturas máquina',
+        name: 'Pull-over polea',
         type: 'iso',
         loadType: 'machine',
         reps: [10, 12],
-        sets: 2,
-        restBetweenSets: 120
-      },
-      {
-        name: 'Cruce de poleas',
-        type: 'iso',
-        loadType: 'machine',
-        reps: [10, 12],
-        sets: 2,
+        sets: 3,
         restBetweenSets: 120
       }
     ]

@@ -82,6 +82,7 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
   const [aiEnabled, setAiEnabledState] = useState(getAiEnabled());
   const [showResetModal, setShowResetModal] = useState(false);
   const [progressionOpen, setProgressionOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     const sync = () => {
@@ -116,6 +117,7 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
   const handleImportFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setImporting(true);
     try {
       const text = await file.text();
       if (file.name.endsWith('.csv')) {
@@ -123,7 +125,11 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
         const added = await bulkAddSessions(parsed);
         showToast(`Importadas ${added} sesiones ✓`);
       } else {
-        if (!confirm('Esto SOBRESCRIBIRÁ todos tus datos actuales. ¿Continuar?')) return;
+        if (!confirm('Esto SOBRESCRIBIRÁ todos tus datos actuales. ¿Continuar?')) {
+          setImporting(false);
+          e.target.value = '';
+          return;
+        }
         const data = JSON.parse(text);
         await importAllData(data);
         showToast('Datos importados ✓');
@@ -133,6 +139,7 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
       console.error(err);
       showToast('Error: ' + err.message);
     }
+    setImporting(false);
     e.target.value = '';
   };
 
@@ -246,8 +253,8 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
       </button>
 
       <div className="section-label" style={{ marginTop: 28 }}>Datos</div>
-      <button className="secondary-btn" onClick={handleImport}>
-        Importar datos (CSV Jefit o JSON)
+      <button className="secondary-btn" onClick={handleImport} disabled={importing}>
+        {importing ? <>Importando<span className="importing-dots" /></> : 'Importar datos (CSV Jefit o JSON)'}
       </button>
       <button className="secondary-btn" onClick={handleExport}>
         Exportar datos (JSON)

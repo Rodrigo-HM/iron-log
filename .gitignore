@@ -12,3 +12,7 @@ dist-ssr
 *.sw?
 .env
 .env.local
+
+# Backups personales / datos privados de usuario
+rhernandezmartin*.csv
+iron-log-*.json
