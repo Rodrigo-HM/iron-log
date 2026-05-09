@@ -199,7 +199,9 @@ function SuggestionBox({ suggestion, exDef }) {
 
 function SetRow({ set, si, label, useEffort, showEffort, started, isActive, prev, loadType, onUpdate, onDone }) {
   const editable = started && isActive;
-  const kgStep = DEFAULT_INCREMENT[loadType] ?? 2.5;
+  // Máquinas: step fino de 1kg (cada máquina tiene su propio salto, el usuario elige).
+  // Barra/mancuerna: step según el incremento estándar.
+  const kgStep = loadType === 'machine' ? 1 : (DEFAULT_INCREMENT[loadType] ?? 2.5);
 
   const kgDrag = useDragInput({
     value: set.kg,
@@ -398,19 +400,9 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
     return () => clearInterval(intervalRef.current);
   }, []);
 
-  // Detectar sesión a medias guardada en localStorage al montar
-  useEffect(() => {
-    if (existingSession) return;
-    const saved = loadActiveSession();
-    if (!saved || saved.dayIndex !== dayIndex) return;
-    if (!saved.session?.exercises?.length) return;
-    setResumePrompt(saved);
-  }, [existingSession, dayIndex]);
+  const RESUME_AUTO_MS = 30 * 60 * 1000;
 
-  const resumeSession = () => {
-    const saved = resumePrompt;
-    setResumePrompt(null);
-    if (!saved) return;
+  const doResume = useCallback((saved) => {
     setSession(saved.session);
     setExpandedIdx(saved.expandedIdx ?? 0);
     setStarted(true);
@@ -420,6 +412,27 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
     intervalRef.current = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 1000);
+  }, []);
+
+  // Detectar sesión a medias guardada en localStorage al montar
+  useEffect(() => {
+    if (existingSession) return;
+    const saved = loadActiveSession();
+    if (!saved || saved.dayIndex !== dayIndex) return;
+    if (!saved.session?.exercises?.length) return;
+    const lastInteraction = saved.lastInteractionAt ?? saved.savedAt ?? 0;
+    if (Date.now() - lastInteraction < RESUME_AUTO_MS) {
+      doResume(saved);
+      return;
+    }
+    setResumePrompt(saved);
+  }, [existingSession, dayIndex, doResume]);
+
+  const resumeSession = () => {
+    const saved = resumePrompt;
+    setResumePrompt(null);
+    if (!saved) return;
+    doResume(saved);
   };
 
   const discardResume = () => {
@@ -427,11 +440,56 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
     clearActiveSession();
   };
 
-  // Autosave de la sesión en curso
+  // Refs siempre con el último valor, para guardar de forma síncrona desde
+  // los updaters de setState y desde los handlers de visibilidad.
+  const startedRef = useRef(false);
+  const sessionRef = useRef(session);
+  const elapsedRef = useRef(0);
+  const expandedIdxRef = useRef(0);
+  startedRef.current = started;
+  sessionRef.current = session;
+  elapsedRef.current = elapsed;
+  expandedIdxRef.current = expandedIdx;
+
+  const persistNow = useCallback((overrides = {}) => {
+    if (!startedRef.current) return;
+    saveActiveSession({
+      dayIndex,
+      session: sessionRef.current,
+      elapsed: elapsedRef.current,
+      expandedIdx: expandedIdxRef.current,
+      lastInteractionAt: Date.now(),
+      ...overrides,
+    });
+  }, [dayIndex]);
+
+  // Persistir cuando la app se va al background — Android puede congelar el
+  // WebView justo después y los effects pendientes nunca se ejecutarían.
+  useEffect(() => {
+    const flush = () => {
+      if (!startedRef.current) return;
+      saveActiveSession({
+        dayIndex,
+        session: sessionRef.current,
+        elapsed: elapsedRef.current,
+        expandedIdx: expandedIdxRef.current,
+      });
+    };
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [dayIndex]);
+
+  // Tick del cronómetro: refresca elapsed sin tocar lastInteractionAt.
   useEffect(() => {
     if (!started) return;
     saveActiveSession({ dayIndex, session, elapsed, expandedIdx });
-  }, [started, dayIndex, session, elapsed, expandedIdx]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed]);
 
   const deloadInfo = useMemo(() => {
     const lastSession = [...sessions].sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -476,9 +534,11 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
     setSession(prev => {
       const copy = JSON.parse(JSON.stringify(prev));
       copy.exercises[exIdx].sets[setIdx][field] = value;
+      sessionRef.current = copy;
+      persistNow({ session: copy });
       return copy;
     });
-  }, []);
+  }, [persistNow]);
 
   const makeUpdateSet = (exIdx) => (setIdx, field, value) => {
     setSession(prev => {
@@ -501,6 +561,8 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
         }
       }
 
+      sessionRef.current = copy;
+      persistNow({ session: copy });
       return copy;
     });
   };
@@ -513,6 +575,8 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
         kg: '', reps: '',
         effort: type === 'iso' ? undefined : null
       });
+      sessionRef.current = copy;
+      persistNow({ session: copy });
       return copy;
     });
   };
@@ -523,6 +587,8 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
       if (copy.exercises[exIdx].sets.length > 1) {
         copy.exercises[exIdx].sets.pop();
       }
+      sessionRef.current = copy;
+      persistNow({ session: copy });
       return copy;
     });
   };
@@ -531,10 +597,14 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
     if (isLast) {
       const nextIdx = session.exercises.findIndex((_, i) => i > exIdx);
       setTimerState(prev => ({ seconds: restSec, key: prev.key + 1, exIdx: nextIdx !== -1 ? nextIdx : null }));
-      if (nextIdx !== -1) setExpandedIdx(nextIdx);
+      if (nextIdx !== -1) {
+        expandedIdxRef.current = nextIdx;
+        setExpandedIdx(nextIdx);
+      }
     } else {
       setTimerState(prev => ({ seconds: restSec, key: prev.key + 1, exIdx }));
     }
+    persistNow();
   };
 
   const handleTimerDone = () => setTimerState({ seconds: null, key: 0, exIdx: null });

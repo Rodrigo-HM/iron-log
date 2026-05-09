@@ -341,11 +341,14 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
             <div style={{ fontSize: 11, marginTop: 4 }}>Histéresis: tras una bajada, requiere 1 sesión de consolidación antes de volver a subir.</div>
 
             <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>AISLAMIENTOS</strong></div>
-            <div>Todas al techo en UNA sesión → +incremento</div>
-            <div>Por debajo del mínimo DOS sesiones → −incremento</div>
+            <div>Sin esfuerzo, solo reps.</div>
+            <div>Todas las series al techo en UNA sesión → +incremento</div>
+            <div>Set 1 &lt; mínimo dos sesiones seguidas → −incremento</div>
+            <div style={{ fontSize: 11, marginTop: 4 }}>Histéresis: tras una bajada, requiere 1 sesión de consolidación antes de volver a subir.</div>
 
             <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>INCREMENTOS</strong></div>
-            <div>Barra +2.5kg · Mancuernas +2kg · Máquina +5kg</div>
+            <div>Barra +2.5kg · Mancuernas +2kg</div>
+            <div>Máquina/polea: cada una tiene su salto. La sugerencia dice solo "sube/baja el peso" y tú eliges el mínimo posible. Input fino de 1kg.</div>
 
             <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>DELOAD</strong></div>
             <div>💀 dos veces seguidas o peso bajando 3 sesiones → sugerencia automática</div>

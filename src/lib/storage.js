@@ -242,8 +242,14 @@ const ACTIVE_SESSION_KEY = 'iron_log_active_session';
 
 export function saveActiveSession(payload) {
   try {
+    let lastInteractionAt = payload.lastInteractionAt;
+    if (lastInteractionAt === undefined) {
+      const prev = loadActiveSession();
+      lastInteractionAt = prev?.lastInteractionAt ?? prev?.savedAt ?? Date.now();
+    }
     localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify({
       ...payload,
+      lastInteractionAt,
       savedAt: Date.now()
     }));
   } catch {}

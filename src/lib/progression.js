@@ -44,6 +44,35 @@ function getIncrement(exDef) {
   return exDef.increment ?? DEFAULT_INCREMENT[exDef.loadType ?? 'bar'];
 }
 
+function isMachine(exDef) {
+  return exDef.loadType === 'machine';
+}
+
+// Texto para una subida: en máquina dice "sube lo mínimo" (sin cantidad);
+// en barra/mancuerna dice la cantidad concreta.
+function upText(exDef) {
+  return isMachine(exDef)
+    ? 'Sube el peso lo mínimo que permita la máquina.'
+    : `Subimos ${getIncrement(exDef)}kg.`;
+}
+
+function downText(exDef) {
+  return isMachine(exDef)
+    ? 'Baja el peso lo mínimo que permita la máquina.'
+    : `Bajamos ${getIncrement(exDef)}kg.`;
+}
+
+// Peso a sugerir cuando toca subir/bajar.
+// En máquina, mantenemos el peso actual (el usuario lo ajustará a su salto real).
+// En barra/mancuerna, aplicamos el incremento estándar.
+function nextUpWeight(weight, exDef) {
+  return isMachine(exDef) ? weight : weight + getIncrement(exDef);
+}
+
+function nextDownWeight(weight, exDef, multiplier = 1) {
+  return isMachine(exDef) ? weight : weight - getIncrement(exDef) * multiplier;
+}
+
 // ─── CÁLCULO EN TIEMPO REAL: peso de los back offs ───────────────────────
 
 /**
@@ -104,7 +133,6 @@ export function suggestTopSet(history, exDef) {
 
   const [minReps, maxReps] = exDef.topReps;
   const [backMin] = exDef.backReps ?? [minReps];
-  const inc = getIncrement(exDef);
 
   // Override por colapso de back offs:
   // si en 2 sesiones seguidas ≥2/3 back offs cayeron del mínimo, frenar subida.
@@ -126,8 +154,8 @@ export function suggestTopSet(history, exDef) {
     const prevReps = num(prevTopSet?.reps);
     const prevBelow = !isNaN(prevReps) && prevReps < minReps;
     if (prevBelow) {
-      return suggest(weight - inc, [minReps, maxReps],
-        `Por debajo del mínimo dos sesiones seguidas (${reps} reps). Bajamos ${inc}kg.`,
+      return suggest(nextDownWeight(weight, exDef), [minReps, maxReps],
+        `Por debajo del mínimo dos sesiones seguidas (${reps} reps). ${downText(exDef)}`,
         'decrease');
     }
     return suggest(weight, [minReps, maxReps],
@@ -146,8 +174,8 @@ export function suggestTopSet(history, exDef) {
         return suggest(weight, [minReps, maxReps],
           `Techo de reps tras una bajada. Consolida una sesión más antes de volver a subir.`, 'maintain');
       }
-      return suggest(weight + inc, [minReps, maxReps],
-        `Llegaste al techo (${reps} reps). Subimos ${inc}kg.`, 'increase');
+      return suggest(nextUpWeight(weight, exDef), [minReps, maxReps],
+        `Llegaste al techo (${reps} reps). ${upText(exDef)}`, 'increase');
     }
     return suggest(weight, [minReps, maxReps],
       `${isNaN(reps) ? '—' : reps} reps en rango. Mantén e intenta +1 rep.`, 'maintain');
@@ -158,8 +186,8 @@ export function suggestTopSet(history, exDef) {
     const prevTopSet = prev?.sets.find(s => s.isTopSet) ?? prev?.sets[0];
     const prevEffort = prevTopSet?.effort;
     if (prevEffort === 'limit') {
-      return suggest(weight - inc, [minReps, maxReps],
-        `💀 dos sesiones seguidas. Bajamos ${inc}kg para recuperar calidad.`, 'decrease');
+      return suggest(nextDownWeight(weight, exDef), [minReps, maxReps],
+        `💀 dos sesiones seguidas. ${downText(exDef)} Recupera calidad.`, 'decrease');
     }
     return suggest(weight, [minReps, maxReps],
       `💀 al límite (primera vez). Mantén, no bajes todavía.`, 'maintain');
@@ -175,8 +203,8 @@ export function suggestTopSet(history, exDef) {
       return suggest(weight, [minReps, maxReps],
         `💪 tras una bajada. Consolida una sesión más antes de volver a subir.`, 'maintain');
     }
-    return suggest(weight + inc, [minReps, maxReps],
-      `💪 Fácil. Subimos ${inc}kg.`, 'increase');
+    return suggest(nextUpWeight(weight, exDef), [minReps, maxReps],
+      `💪 Fácil. ${upText(exDef)}`, 'increase');
   }
 
   // 😐 Regular (RPE 8 = en el objetivo) → double progression: subir solo si techo de reps
@@ -190,8 +218,8 @@ export function suggestTopSet(history, exDef) {
         return suggest(weight, [minReps, maxReps],
           `😐 al techo tras una bajada. Consolida una sesión más antes de volver a subir.`, 'maintain');
       }
-      return suggest(weight + inc, [minReps, maxReps],
-        `😐 al techo (${reps} reps). Subimos ${inc}kg.`, 'increase');
+      return suggest(nextUpWeight(weight, exDef), [minReps, maxReps],
+        `😐 al techo (${reps} reps). ${upText(exDef)}`, 'increase');
     }
     return suggest(weight, [minReps, maxReps],
       `😐 Regular en el objetivo. Mantén y suma +1 rep.`, 'maintain');
@@ -263,7 +291,6 @@ export function suggestCompound(history, exDef) {
   if (allReps.length === 0) return null;
 
   const [minReps, maxReps] = exDef.reps;
-  const inc = getIncrement(exDef);
 
   const set1Reps = allReps[0];
   const minOfSession = Math.min(...allReps);
@@ -291,11 +318,15 @@ export function suggestCompound(history, exDef) {
     const prevBelow = !isNaN(prevSet1) && prevSet1 < minReps;
     if (prevBelow) {
       const bigDeficit = set1Reps < minReps - 3;
-      const drop = bigDeficit ? inc * 2 : inc;
-      return suggest(weight - drop, [minReps, maxReps],
+      const multiplier = bigDeficit ? 2 : 1;
+      const newWeight = nextDownWeight(weight, exDef, multiplier);
+      const dText = isMachine(exDef)
+        ? (bigDeficit ? 'Baja el peso un par de escalones de la máquina.' : downText(exDef))
+        : downText(exDef);
+      return suggest(newWeight, [minReps, maxReps],
         bigDeficit
-          ? `Set 1 muy por debajo del mínimo dos sesiones seguidas. Bajamos ${drop}kg.`
-          : `Set 1 por debajo del mínimo dos sesiones seguidas. Bajamos ${drop}kg.`,
+          ? `Set 1 muy por debajo del mínimo dos sesiones seguidas. ${dText}`
+          : `Set 1 por debajo del mínimo dos sesiones seguidas. ${dText}`,
         'decrease');
     }
     return suggest(weight, [minReps, maxReps],
@@ -309,8 +340,8 @@ export function suggestCompound(history, exDef) {
       return suggest(weight, [minReps, maxReps],
         `💪 Fácil tras una bajada. Consolida una sesión más antes de volver a subir.`, 'maintain');
     }
-    return suggest(weight + inc, [minReps, maxReps],
-      `💪 Fácil con todas las series casi al techo. Subimos ${inc}kg.`, 'increase');
+    return suggest(nextUpWeight(weight, exDef), [minReps, maxReps],
+      `💪 Fácil con todas las series casi al techo. ${upText(exDef)}`, 'increase');
   }
 
   // SUBIR: set1 al techo, esfuerzo razonable, todas las series en rango
@@ -327,8 +358,8 @@ export function suggestCompound(history, exDef) {
       return suggest(weight, [minReps, maxReps],
         `Set 1 al techo tras una bajada. Consolida una sesión más antes de volver a subir.`, 'maintain');
     }
-    return suggest(weight + inc, [minReps, maxReps],
-      `Set 1 al techo (${set1Reps} reps). Subimos ${inc}kg.`, 'increase');
+    return suggest(nextUpWeight(weight, exDef), [minReps, maxReps],
+      `Set 1 al techo (${set1Reps} reps). ${upText(exDef)}`, 'increase');
   }
 
   // Mantener
@@ -345,13 +376,16 @@ export function suggestCompound(history, exDef) {
 /**
  * Sugerencia para un ejercicio de aislamiento.
  * Sin esfuerzo, solo reps.
- * Sube con UNA sesión buena. Baja solo con DOS sesiones malas.
+ *  - Sube si TODAS al techo en una sesión.
+ *  - Baja si SET 1 < min en dos sesiones seguidas (más robusto frente a ruido).
+ *  - Histéresis: tras una bajada forzada, requiere 1 sesión de consolidación antes de subir.
  */
 export function suggestIsolation(history, exDef) {
   if (!history || history.length === 0) return null;
 
   const last = history[0];
   const prev = history[1] ?? null;
+  const prevPrev = history[2] ?? null;
 
   const sets = last.sets;
   const weight = num(sets[0]?.kg);
@@ -361,27 +395,39 @@ export function suggestIsolation(history, exDef) {
   if (allReps.length === 0) return null;
 
   const [minReps, maxReps] = exDef.reps;
-  const inc = getIncrement(exDef);
+  const set1Reps = allReps[0];
   const allAtMax = allReps.every(r => r >= maxReps);
-  const anyBelowMin = allReps.some(r => r < minReps);
 
-  // Todas al techo en UNA sesión → subir
-  if (allAtMax) {
-    return suggest(weight + inc, [minReps, maxReps],
-      `Todas al techo (${maxReps} reps). Subimos ${inc}kg.`, 'increase');
-  }
+  // Histéresis: ¿la sesión anterior fue una bajada forzada?
+  const afterForcedDecrease = (() => {
+    if (!prev || !prevPrev) return false;
+    const prevKg = num(prev.sets[0]?.kg);
+    const prevPrevKg = num(prevPrev.sets[0]?.kg);
+    if (isNaN(prevKg) || isNaN(prevPrevKg)) return false;
+    return prevKg < prevPrevKg;
+  })();
 
-  // Caída dos sesiones seguidas → bajar
-  if (anyBelowMin && prev) {
-    const prevSets = prev.sets;
-    const prevReps = prevSets.map(s => num(s.reps)).filter(r => !isNaN(r));
-    const prevAnyBelow = prevReps.some(r => r < minReps);
-    if (prevAnyBelow) {
-      return suggest(weight - inc, [minReps, maxReps],
-        `Por debajo del mínimo dos sesiones seguidas. Bajamos ${inc}kg.`, 'decrease');
+  // BAJAR: set1 < min dos sesiones seguidas
+  if (set1Reps < minReps) {
+    const prevSet1 = num(prev?.sets?.[0]?.reps);
+    const prevBelow = !isNaN(prevSet1) && prevSet1 < minReps;
+    if (prevBelow) {
+      return suggest(nextDownWeight(weight, exDef), [minReps, maxReps],
+        `Set 1 por debajo del mínimo dos sesiones seguidas. ${downText(exDef)}`, 'decrease');
     }
     return suggest(weight, [minReps, maxReps],
-      `Alguna serie baja (primera vez). Mantén.`, 'maintain');
+      `Set 1 por debajo del mínimo (${set1Reps} reps). Mantén — quizá fue mala sesión.`,
+      'maintain');
+  }
+
+  // SUBIR: todas al techo en una sesión
+  if (allAtMax) {
+    if (afterForcedDecrease) {
+      return suggest(weight, [minReps, maxReps],
+        `Todas al techo tras una bajada. Consolida una sesión más antes de volver a subir.`, 'maintain');
+    }
+    return suggest(nextUpWeight(weight, exDef), [minReps, maxReps],
+      `Todas al techo (${maxReps} reps). ${upText(exDef)}`, 'increase');
   }
 
   return suggest(weight, [minReps, maxReps],

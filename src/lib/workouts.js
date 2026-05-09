@@ -177,7 +177,7 @@ export const WORKOUTS = {
         name: 'Gemelo máquina',
         type: 'iso',
         loadType: 'machine',
-        reps: [10, 12],
+        reps: [12, 20],
         sets: 3,
         restBetweenSets: 120
       }
