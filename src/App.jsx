@@ -51,13 +51,22 @@ export default function App() {
 
   useEffect(() => {
     handleAuthCallback();
+    let resolved = false;
     supabase.auth.getSession().then(({ data: { session } }) => {
+      resolved = true;
       setUser(session?.user ?? null);
+    }).catch(() => {
+      resolved = true;
+      setUser(null);
     });
+    const timeout = setTimeout(() => {
+      if (!resolved) setUser(null);
+    }, 5000);
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      resolved = true;
       setUser(session?.user ?? null);
     });
-    return () => subscription.unsubscribe();
+    return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, []);
 
   const refreshRoutines = useCallback(async () => {
@@ -69,6 +78,8 @@ export default function App() {
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
+    let cancelled = false;
+    const safety = setTimeout(() => { if (!cancelled) setLoading(false); }, 8000);
     (async () => {
       setLoading(true);
       try {
@@ -76,18 +87,21 @@ export default function App() {
           getAllSessions(),
           refreshRoutines()
         ]);
+        if (cancelled) return;
         setSessions(allSessions);
         const bodyWeight  = await getSetting('body_weight', DEFAULT_SETTINGS.bodyWeight);
         const height      = await getSetting('height', DEFAULT_SETTINGS.height);
         const phase       = await getSetting('phase', DEFAULT_SETTINGS.phase);
         const cutStart    = await getSetting('cut_start', DEFAULT_SETTINGS.cutStart);
         const weeklyGoal  = await getSetting('weekly_goal', DEFAULT_SETTINGS.weeklyGoal);
+        if (cancelled) return;
         setSettings({ bodyWeight, height, phase, cutStart, weeklyGoal });
       } catch (err) {
         console.error('Error loading data:', err);
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     })();
+    return () => { cancelled = true; clearTimeout(safety); };
   }, [user, refreshRoutines]);
 
   const refreshSessions = useCallback(async () => {
