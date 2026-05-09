@@ -16,7 +16,9 @@ import {
   saveSession as saveSessionToDb,
   getSetting,
   setSetting,
-  getAllRoutines
+  getAllRoutines,
+  saveAppCache,
+  loadAppCache
 } from './lib/storage';
 import { getNextWorkoutDayIndex } from './lib/workouts';
 import './styles/styles.css';
@@ -31,13 +33,23 @@ const DEFAULT_SETTINGS = {
 
 export default function App() {
   const [user, setUser] = useState(undefined);
-  const [tab, setTab] = useState('home');
-  const [sessionDayIndex, setSessionDayIndex] = useState(null);
-  const [sessions, setSessions] = useState([]);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [routines, setRoutines] = useState([]);
-  const [activeRoutine, setActiveRoutine] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState(() => localStorage.getItem('iron_log_tab') ?? 'home');
+  const [sessionDayIndex, setSessionDayIndex] = useState(() => {
+    const v = localStorage.getItem('iron_log_session_day');
+    return v !== null ? Number(v) : null;
+  });
+  const cache = loadAppCache();
+  const [sessions, setSessions] = useState(cache?.sessions ?? []);
+  const [settings, setSettings] = useState(cache?.settings ?? DEFAULT_SETTINGS);
+  const [routines, setRoutines] = useState(cache?.routines ?? []);
+  const [activeRoutine, setActiveRoutine] = useState(cache?.routines?.find(r => r.isActive) ?? null);
+  const [loading, setLoading] = useState(!cache);
+  const sessionsRef = useRef(sessions);
+  const settingsRef = useRef(settings);
+  const routinesRef = useRef(routines);
+  sessionsRef.current = sessions;
+  settingsRef.current = settings;
+  routinesRef.current = routines;
   const [spotifyEnabled, setSpotifyEnabledState] = useState(
     localStorage.getItem('spotify_enabled') !== 'false'
   );
@@ -74,6 +86,7 @@ export default function App() {
     setRoutines(all);
     const active = all.find(r => r.isActive) ?? null;
     setActiveRoutine(active);
+    saveAppCache({ sessions: sessionsRef.current, settings: settingsRef.current, routines: all });
   }, []);
 
   useEffect(() => {
@@ -81,21 +94,26 @@ export default function App() {
     let cancelled = false;
     const safety = setTimeout(() => { if (!cancelled) setLoading(false); }, 8000);
     (async () => {
-      setLoading(true);
+      if (!loadAppCache()) setLoading(true);
       try {
-        const [allSessions] = await Promise.all([
+        const [allSessions, allRoutines] = await Promise.all([
           getAllSessions(),
-          refreshRoutines()
+          getAllRoutines()
         ]);
         if (cancelled) return;
         setSessions(allSessions);
+        const active = allRoutines.find(r => r.isActive) ?? null;
+        setRoutines(allRoutines);
+        setActiveRoutine(active);
         const bodyWeight  = await getSetting('body_weight', DEFAULT_SETTINGS.bodyWeight);
         const height      = await getSetting('height', DEFAULT_SETTINGS.height);
         const phase       = await getSetting('phase', DEFAULT_SETTINGS.phase);
         const cutStart    = await getSetting('cut_start', DEFAULT_SETTINGS.cutStart);
         const weeklyGoal  = await getSetting('weekly_goal', DEFAULT_SETTINGS.weeklyGoal);
         if (cancelled) return;
-        setSettings({ bodyWeight, height, phase, cutStart, weeklyGoal });
+        const newSettings = { bodyWeight, height, phase, cutStart, weeklyGoal };
+        setSettings(newSettings);
+        saveAppCache({ sessions: allSessions, routines: allRoutines, settings: newSettings });
       } catch (err) {
         console.error('Error loading data:', err);
       }
@@ -107,6 +125,7 @@ export default function App() {
   const refreshSessions = useCallback(async () => {
     const allSessions = await getAllSessions();
     setSessions(allSessions);
+    saveAppCache({ sessions: allSessions, routines: routinesRef.current, settings: settingsRef.current });
   }, []);
 
   const handleSettingsChange = async (newSettings) => {
@@ -116,22 +135,29 @@ export default function App() {
     await setSetting('phase', newSettings.phase);
     await setSetting('cut_start', newSettings.cutStart);
     await setSetting('weekly_goal', newSettings.weeklyGoal);
+    saveAppCache({ sessions: sessionsRef.current, routines: routinesRef.current, settings: newSettings });
   };
 
   const handleTabChange = (newTab) => {
+    let dayIdx = null;
     if (newTab === 'session') {
       const totalDays = activeRoutine?.days?.length ?? 0;
-      const nextIdx = getNextWorkoutDayIndex(sessions, totalDays);
-      setSessionDayIndex(nextIdx);
+      dayIdx = getNextWorkoutDayIndex(sessions, totalDays);
+      setSessionDayIndex(dayIdx);
+      localStorage.setItem('iron_log_session_day', String(dayIdx));
     } else {
       setSessionDayIndex(null);
+      localStorage.removeItem('iron_log_session_day');
     }
     setTab(newTab);
+    localStorage.setItem('iron_log_tab', newTab);
   };
 
   const handleOpenWorkout = (dayIndex) => {
     setSessionDayIndex(dayIndex);
     setTab('session');
+    localStorage.setItem('iron_log_tab', 'session');
+    localStorage.setItem('iron_log_session_day', String(dayIndex));
   };
 
   const handleSaveSession = async (session, errorMsg) => {
@@ -143,6 +169,8 @@ export default function App() {
       setTimeout(() => {
         setTab('home');
         setSessionDayIndex(null);
+        localStorage.setItem('iron_log_tab', 'home');
+        localStorage.removeItem('iron_log_session_day');
       }, 600);
     } catch (err) {
       console.error(err);
@@ -153,6 +181,8 @@ export default function App() {
   const handleBackFromSession = () => {
     setTab('home');
     setSessionDayIndex(null);
+    localStorage.setItem('iron_log_tab', 'home');
+    localStorage.removeItem('iron_log_session_day');
   };
 
   if (user === undefined || loading) {

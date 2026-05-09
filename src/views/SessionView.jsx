@@ -3,6 +3,7 @@ import { getExerciseHistory, DEFAULT_INCREMENT } from '../lib/workouts';
 import { generateSuggestion, calcBackoffWeight, EFFORT_LEVELS, detectDeload } from '../lib/progression';
 import { saveActiveSession, loadActiveSession, clearActiveSession } from '../lib/storage';
 import { useTapInput } from '../lib/useTapInput';
+import { scheduleRestEnd, cancelRestEnd, ensureNotificationPermission } from '../lib/restNotification';
 
 // ─── BEEP ─────────────────────────────────────────────────────────────────
 
@@ -62,27 +63,57 @@ function fmtTime(sec) {
 // ─── REST TIMER ───────────────────────────────────────────────────────────
 
 function RestTimer({ seconds, onDone, hidden = false }) {
+  const endTimeRef = useRef(Date.now() + seconds * 1000);
   const [remaining, setRemaining] = useState(seconds);
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
 
+  // Programar notificación al montar y cancelarla al desmontar
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRemaining(r => {
-        if (r <= 1) {
-          clearInterval(interval);
-          beep({ frequency: 1760, duration: 300, volume: 0.4 });
-          setTimeout(() => onDoneRef.current?.(), 0);
-          return 0;
-        }
-        if (r === 3 || r === 2) {
-          beep({ frequency: 880, duration: 180, volume: 0.35 });
-        }
-        return r - 1;
-      });
-    }, 1000);
+    scheduleRestEnd(seconds * 1000);
+    return () => { cancelRestEnd(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const tick = () => {
+      const left = Math.round((endTimeRef.current - Date.now()) / 1000);
+      if (left <= 0) {
+        clearInterval(interval);
+        beep({ frequency: 1760, duration: 300, volume: 0.4 });
+        setRemaining(0);
+        setTimeout(() => onDoneRef.current?.(), 0);
+        return;
+      }
+      if (left === 3 || left === 2) {
+        beep({ frequency: 880, duration: 180, volume: 0.35 });
+      }
+      setRemaining(left);
+    };
+    const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
   }, []);
+
+  // Al volver de background, recalcular inmediatamente sin esperar al próximo tick
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        const left = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+        setRemaining(left);
+        if (left === 0) setTimeout(() => onDoneRef.current?.(), 0);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  const handleAdjust = (delta) => {
+    endTimeRef.current += delta * 1000;
+    setRemaining(r => Math.max(0, r + delta));
+    const newDelay = endTimeRef.current - Date.now();
+    if (newDelay > 0) scheduleRestEnd(newDelay);
+    else cancelRestEnd();
+  };
 
   const pct = Math.max(0, remaining / seconds);
   const circumference = 2 * Math.PI * 26;
@@ -107,8 +138,8 @@ function RestTimer({ seconds, onDone, hidden = false }) {
         </text>
       </svg>
       <div className="timer-controls">
-        <button className="timer-adj-btn" onClick={() => setRemaining(r => Math.max(0, r - 30))}>−30s</button>
-        <button className="timer-adj-btn" onClick={() => setRemaining(r => r + 30)}>+30s</button>
+        <button className="timer-adj-btn" onClick={() => handleAdjust(-30)}>−30s</button>
+        <button className="timer-adj-btn" onClick={() => handleAdjust(30)}>+30s</button>
         <button className="timer-skip-btn" onClick={onDone}>Saltar</button>
       </div>
     </div>
@@ -304,7 +335,10 @@ function SetRow({ set, si, label, useEffort, showEffort, started, isActive, prev
 }
 
 function ExerciseCard({ exercise, exDef, history, lastSession, started, expanded, isActive, isDeloadSession, aiEnabled, onToggle, timerSeconds, timerKey, onSetDone, onTimerDone, onUpdateSet, onAddSet, onRemoveSet }) {
-  const [activeSet, setActiveSet] = useState(0);
+  const [activeSet, setActiveSet] = useState(() => {
+    const firstIncomplete = exercise.sets.findIndex(s => s.kg === '' || s.reps === '');
+    return firstIncomplete === -1 ? exercise.sets.length : firstIncomplete;
+  });
 
   const suggestion = useMemo(() => {
     if (history.length === 0) return null;
@@ -546,6 +580,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
     intervalRef.current = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
     }, 1000);
+    ensureNotificationPermission();
   };
 
   const handleStart = () => {

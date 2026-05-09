@@ -235,6 +235,27 @@ export async function importAllData(data) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+//   APP DATA CACHE — evita spinner al reactivar la PWA desde background
+// ───────────────────────────────────────────────────────────────────────────
+
+const APP_CACHE_KEY = 'iron_log_app_cache';
+
+export function saveAppCache(data) {
+  try {
+    localStorage.setItem(APP_CACHE_KEY, JSON.stringify({ ...data, cachedAt: Date.now() }));
+  } catch {}
+}
+
+export function loadAppCache() {
+  try {
+    const raw = localStorage.getItem(APP_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 //   ACTIVE SESSION (localStorage) — sobrevive a recargas/minimizaciones
 // ───────────────────────────────────────────────────────────────────────────
 
