@@ -679,7 +679,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
 
       {!started && !resumePrompt && (
         <button className="start-session-btn" onClick={handleStart}>
-          Iniciar sesión
+          Iniciar entrenamiento
         </button>
       )}
 
