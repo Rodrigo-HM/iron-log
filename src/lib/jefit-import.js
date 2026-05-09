@@ -39,7 +39,7 @@ const EXERCISE_MAP = {
   'Dumbbell Seated Dublin Press': 'Press militar mancuernas',
   'Machine Reverse Fly': 'Pájaros máquina',
   'Cable Rope Face Pull': 'Pájaros máquina',
-  'Cable Shoulder Extension': 'Extensión hombro polea',
+  'Cable Shoulder Extension': 'Pull-over polea',
   'Dumbbell Alternating Incline Curl': 'Curl inclinado mancuerna',
   'Cable Rope Hammer Curl': 'Curl martillo cuerda',
   'Preacher Curl Machine': 'Curl Scott máquina',
