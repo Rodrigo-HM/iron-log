@@ -12,6 +12,7 @@ export function useTapInput({ value, fallback, onChange, step = 1, min = 0 }) {
   const isDragging = useRef(false);
   const lastTapTime = useRef(0);
   const accPx = useRef(0);
+  const lastSteps = useRef(0);
 
   const effectiveValue = value !== '' ? parseFloat(value) : null;
   const fallbackNum = fallback !== undefined && fallback !== '' ? parseFloat(fallback) : null;
@@ -30,6 +31,7 @@ export function useTapInput({ value, fallback, onChange, step = 1, min = 0 }) {
     touchStartValue.current = isNaN(base) ? 0 : base;
     isDragging.current = false;
     accPx.current = 0;
+    lastSteps.current = 0;
   }, [hasValue, effectiveValue, hasFallback, fallbackNum]);
 
   const onTouchMove = useCallback((e) => {
@@ -46,6 +48,10 @@ export function useTapInput({ value, fallback, onChange, step = 1, min = 0 }) {
     e.preventDefault();
     accPx.current = dy;
     const steps = Math.floor(Math.abs(accPx.current) / DRAG_STEP_PX) * Math.sign(accPx.current);
+    if (steps !== lastSteps.current) {
+      lastSteps.current = steps;
+      try { navigator.vibrate?.(10); } catch {}
+    }
     const newVal = Math.max(min, Math.round((touchStartValue.current + steps * step) / step) * step);
     onChange(String(Math.round(newVal * 100) / 100));
   }, [hasValue, hasFallback, fallbackNum, onChange, step, min]);

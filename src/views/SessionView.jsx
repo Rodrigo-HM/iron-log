@@ -66,6 +66,7 @@ function RestTimer({ seconds, onDone, hidden = false }) {
   const endTimeRef = useRef(Date.now() + seconds * 1000);
   const [remaining, setRemaining] = useState(seconds);
   const onDoneRef = useRef(onDone);
+  const lastBeepedSecond = useRef(null);
   onDoneRef.current = onDone;
 
   // Programar notificación al montar y cancelarla al desmontar
@@ -85,7 +86,8 @@ function RestTimer({ seconds, onDone, hidden = false }) {
         setTimeout(() => onDoneRef.current?.(), 0);
         return;
       }
-      if (left === 3 || left === 2) {
+      if ((left === 3 || left === 2) && lastBeepedSecond.current !== left) {
+        lastBeepedSecond.current = left;
         beep({ frequency: 880, duration: 180, volume: 0.35 });
       }
       setRemaining(left);
@@ -463,6 +465,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
   const [resumePrompt, setResumePrompt] = useState(null);
   const [aiEnabled] = useState(() => localStorage.getItem('ai_suggestions_enabled') !== 'false');
   const [discardPrompt, setDiscardPrompt] = useState(false);
+  const [summaryPrompt, setSummaryPrompt] = useState(null);
   const startTimeRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -681,7 +684,6 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
   const handleTimerDone = () => setTimerState({ seconds: null, key: 0, exIdx: null });
 
   const handleSave = () => {
-    clearInterval(intervalRef.current);
     const filtered = JSON.parse(JSON.stringify(session));
     filtered.exercises = filtered.exercises
       .map(ex => ({ ...ex, sets: ex.sets.filter(s => s.kg !== '' && s.reps !== '') }))
@@ -692,8 +694,62 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
       return;
     }
     filtered.durationSeconds = started ? elapsed : null;
+
+    // Calcular resumen
+    let totalVolume = 0;
+    let totalSets = 0;
+    let totalReps = 0;
+    const prs = [];
+    for (const ex of filtered.exercises) {
+      const history = getExerciseHistory(sessions, ex.name);
+      let bestPrevWeight = 0;
+      let bestPrevReps = 0;
+      for (const past of history) {
+        for (const s of past.sets ?? []) {
+          const kg = parseFloat(s.kg);
+          const reps = parseInt(s.reps);
+          if (!isNaN(kg) && kg > bestPrevWeight) bestPrevWeight = kg;
+          if (!isNaN(reps) && reps > bestPrevReps) bestPrevReps = reps;
+        }
+      }
+      let bestNowWeight = 0;
+      let bestNowReps = 0;
+      for (const s of ex.sets) {
+        const kg = parseFloat(s.kg);
+        const reps = parseInt(s.reps);
+        if (!isNaN(kg) && !isNaN(reps)) {
+          totalVolume += kg * reps;
+          totalSets += 1;
+          totalReps += reps;
+          if (kg > bestNowWeight) bestNowWeight = kg;
+          if (reps > bestNowReps) bestNowReps = reps;
+        }
+      }
+      if (history.length > 0) {
+        if (bestNowWeight > bestPrevWeight) prs.push({ name: ex.name, type: 'weight', value: bestNowWeight });
+        else if (bestNowReps > bestPrevReps && bestNowWeight >= bestPrevWeight) {
+          prs.push({ name: ex.name, type: 'reps', value: bestNowReps });
+        }
+      }
+    }
+
+    setSummaryPrompt({
+      filtered,
+      durationSeconds: filtered.durationSeconds,
+      totalVolume: Math.round(totalVolume),
+      totalSets,
+      totalReps,
+      prs,
+    });
+  };
+
+  const handleConfirmSave = () => {
+    const data = summaryPrompt;
+    if (!data) return;
+    setSummaryPrompt(null);
+    clearInterval(intervalRef.current);
     clearActiveSession();
-    onSave(filtered);
+    onSave(data.filtered);
   };
 
   return (
@@ -799,6 +855,51 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
             <div className="deload-modal-buttons">
               <button className="secondary-btn" onClick={() => setDiscardPrompt(false)}>Cancelar</button>
               <button className="danger-btn" onClick={() => { clearActiveSession(); onBack(); }}>Descartar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {summaryPrompt && (
+        <div className="deload-modal-overlay">
+          <div className="deload-modal session-summary" onClick={e => e.stopPropagation()}>
+            <div className="summary-emoji">💪</div>
+            <div className="deload-modal-title">¡Buen trabajo!</div>
+            <div className="summary-stats">
+              {summaryPrompt.durationSeconds !== null && (
+                <div className="summary-stat">
+                  <span className="summary-stat-label">Duración</span>
+                  <span className="summary-stat-value">{fmtTime(summaryPrompt.durationSeconds)}</span>
+                </div>
+              )}
+              <div className="summary-stat">
+                <span className="summary-stat-label">Volumen</span>
+                <span className="summary-stat-value">{summaryPrompt.totalVolume.toLocaleString('es-ES')} kg</span>
+              </div>
+              <div className="summary-stat">
+                <span className="summary-stat-label">Series</span>
+                <span className="summary-stat-value">{summaryPrompt.totalSets}</span>
+              </div>
+              <div className="summary-stat">
+                <span className="summary-stat-label">Reps totales</span>
+                <span className="summary-stat-value">{summaryPrompt.totalReps}</span>
+              </div>
+            </div>
+            {summaryPrompt.prs.length > 0 && (
+              <div className="summary-prs">
+                <div className="summary-prs-title">🏆 Récords nuevos</div>
+                {summaryPrompt.prs.map((pr, i) => (
+                  <div key={i} className="summary-pr">
+                    <span className="summary-pr-name">{pr.name}</span>
+                    <span className="summary-pr-value">
+                      {pr.type === 'weight' ? `${pr.value} kg` : `${pr.value} reps`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="deload-modal-buttons">
+              <button className="primary-btn" onClick={handleConfirmSave}>Guardar sesión</button>
             </div>
           </div>
         </div>
