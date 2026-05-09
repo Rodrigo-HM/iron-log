@@ -206,6 +206,7 @@ function ExerciseDetail({ exerciseName, sessions, onBack }) {
 
 export function HistoryView({ sessions }) {
   const [selectedExercise, setSelectedExercise] = useState(null);
+  const [search, setSearch] = useState('');
 
   if (selectedExercise) {
     return (
@@ -217,7 +218,6 @@ export function HistoryView({ sessions }) {
     );
   }
 
-  // Agrupar ejercicios
   const exMap = new Map();
   for (const session of sessions) {
     for (const ex of session.exercises) {
@@ -229,11 +229,15 @@ export function HistoryView({ sessions }) {
   }
 
   const sorted = [...exMap.entries()].sort((a, b) => {
-    // Básicos primero, luego por número de sesiones
     if (a[1].type === 'basic' && b[1].type !== 'basic') return -1;
     if (a[1].type !== 'basic' && b[1].type === 'basic') return 1;
     return b[1].count - a[1].count;
   });
+
+  const query = search.trim().toLowerCase();
+  const filtered = query
+    ? sorted.filter(([name]) => name.toLowerCase().includes(query))
+    : sorted;
 
   if (sorted.length === 0) {
     return (
@@ -254,7 +258,24 @@ export function HistoryView({ sessions }) {
     <div className="page">
       <SessionCalendar sessions={sessions} />
       <div className="section-label">Progresión por ejercicio</div>
-      {sorted.map(([name, info]) => (
+      <div className="exercise-search-wrap">
+        <input
+          className="exercise-search"
+          type="text"
+          placeholder="Buscar ejercicio..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        {search && (
+          <button className="exercise-search-clear" onClick={() => setSearch('')}>✕</button>
+        )}
+      </div>
+      {filtered.length === 0 && (
+        <div className="empty-state" style={{ marginTop: 16 }}>
+          <div className="empty-state-text">Sin resultados para "{search}"</div>
+        </div>
+      )}
+      {filtered.map(([name, info]) => (
         <div className="exercise-list-item" key={name} onClick={() => setSelectedExercise(name)}>
           <div>
             <div className="exercise-list-name">{name}</div>

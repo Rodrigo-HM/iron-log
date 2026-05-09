@@ -842,6 +842,43 @@ button { font-family: inherit; }
   margin-bottom: 4px;
 }
 
+/* Exercise search */
+.exercise-search-wrap {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.exercise-search {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  padding: 10px 36px 10px 12px;
+  outline: none;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.exercise-search::placeholder { color: var(--text-faint); }
+.exercise-search:focus { border-color: var(--accent); }
+
+.exercise-search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
 /* History list */
 .exercise-list-item {
   background: var(--surface);
