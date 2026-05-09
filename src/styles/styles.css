@@ -40,7 +40,6 @@ html, body {
   min-height: 100vh;
   font-size: 15px;
   line-height: 1.5;
-  overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
 }
 
