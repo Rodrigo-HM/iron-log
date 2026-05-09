@@ -197,7 +197,7 @@ function SuggestionBox({ suggestion, exDef }) {
 
 // ─── EXERCISE CARD ────────────────────────────────────────────────────────
 
-function SetRow({ set, si, label, useEffort, started, isActive, prev, loadType, onUpdate, onDone }) {
+function SetRow({ set, si, label, useEffort, showEffort, started, isActive, prev, loadType, onUpdate, onDone }) {
   const editable = started && isActive;
   const kgStep = DEFAULT_INCREMENT[loadType] ?? 2.5;
 
@@ -217,7 +217,7 @@ function SetRow({ set, si, label, useEffort, started, isActive, prev, loadType, 
     min: 1,
   });
 
-  const canComplete = set.kg !== '' && set.reps !== '' && (!useEffort || set.effort);
+  const canComplete = set.kg !== '' && set.reps !== '' && (!showEffort || set.effort);
 
   return (
     <div className={`set-block ${set.isTopSet ? 'top-set-row' : ''} ${!started ? 'set-locked' : !isActive ? 'set-done' : 'set-active'}`}>
@@ -254,7 +254,7 @@ function SetRow({ set, si, label, useEffort, started, isActive, prev, loadType, 
           ✓
         </button>
       </div>
-      {useEffort && isActive && started && (
+      {showEffort && isActive && started && (
         <div className="set-effort-row">
           <EffortSelector
             value={set.effort}
@@ -343,6 +343,8 @@ function ExerciseCard({ exercise, exDef, history, lastSession, started, expanded
             const backoffIdx = exercise.sets.filter((s, idx) => s.isBackOff && idx <= si).length;
             const label = isTopSet ? 'TOP' : isBackOff ? `B${backoffIdx}` : si + 1;
             const prev = lastSession?.sets?.[si];
+            // Esfuerzo: en básicos solo en el top set, en compuestos en todas, en iso nunca
+            const showEffort = useEffort && !isBackOff;
 
             return (
               <SetRow
@@ -351,6 +353,7 @@ function ExerciseCard({ exercise, exDef, history, lastSession, started, expanded
                 si={si}
                 label={label}
                 useEffort={useEffort}
+                showEffort={showEffort}
                 started={started}
                 isActive={si === activeSet}
                 prev={prev}
@@ -495,19 +498,6 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
               if (s.isBackOff) copy.exercises[exIdx].sets[idx].kg = String(backoffKg);
             });
           }
-        }
-      }
-
-      if (field === 'effort' && set.isBackOff) {
-        const backoffSets = ex.sets.map((s, idx) => ({ ...s, idx })).filter(s => s.isBackOff);
-        const isFirstBackoff = backoffSets[0]?.idx === setIdx;
-        if (isFirstBackoff && value === 'limit') {
-          backoffSets.slice(1).forEach(s => {
-            const currentKg = parseFloat(s.kg);
-            if (!isNaN(currentKg)) {
-              copy.exercises[exIdx].sets[s.idx].kg = String(Math.max(0, currentKg - 2.5));
-            }
-          });
         }
       }
 

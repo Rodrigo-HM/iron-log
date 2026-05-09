@@ -318,23 +318,27 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
             <div style={{ fontSize: 11, marginTop: 2 }}>Aislamientos no usan esfuerzo, solo reps.</div>
 
             <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>BÁSICOS — Top set</strong></div>
-            <div>💪 (sin back off 💀) → +incremento</div>
-            <div>😐 al techo de reps (sin back off 💀) → +incremento</div>
+            <div>💪 → +incremento</div>
+            <div>😐 al techo de reps → +incremento</div>
             <div>😐 en rango → mantener, suma +1 rep</div>
             <div>😤 → mantener</div>
-            <div>Back off al límite con 💪/😐/😤 → mantener</div>
             <div>💀 primera vez → mantener · 💀 dos seguidas → −incremento</div>
             <div>Por debajo de minReps dos seguidas → −incremento</div>
+            <div style={{ fontSize: 11, marginTop: 4 }}>Override fatiga: si ≥2/3 back offs caen del mínimo en 2 sesiones seguidas → frenar subida.</div>
+            <div style={{ fontSize: 11 }}>Histéresis: tras una bajada, requiere 1 sesión de consolidación antes de volver a subir.</div>
 
             <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>BÁSICOS — Back offs</strong></div>
-            <div>Peso = top set × (1 − reducción según esfuerzo del top)</div>
+            <div>Derivados del top: peso = top × (1 − reducción según esfuerzo del top)</div>
             <div style={{ fontSize: 11 }}>💪 8% · 😐 10% · 😤 12.5% · 💀 15%</div>
-            <div>💀 en back offs dos sesiones seguidas → −incremento</div>
+            <div style={{ fontSize: 11, marginTop: 4 }}>Sin esfuerzo propio: ejecuta a RIR 1-2 (deja 1-2 reps en la cámara). Es normal caer 1-2 reps entre la primera y la última.</div>
 
-            <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>COMPUESTOS</strong></div>
-            <div>Todas al techo + ninguna serie 💀 → +incremento</div>
-            <div>Todas al techo pero alguna 💀 → mantener</div>
-            <div>Todas las series por debajo del mínimo dos seguidas → −incremento</div>
+            <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>COMPUESTOS (dynamic double progression)</strong></div>
+            <div>Set 1 al techo + todas en rango + esfuerzo ≠ 💀 → +incremento</div>
+            <div>Set 1 al techo pero alguna serie cae del mínimo → mantener</div>
+            <div>Set 1 al techo pero esfuerzo 💀 → mantener</div>
+            <div>💪 Fácil + todas las series ≥ techo−1 → +incremento (caso sub-cargado)</div>
+            <div>Set 1 &lt; mínimo dos sesiones seguidas → −incremento (−2× si déficit &gt; 3 reps)</div>
+            <div style={{ fontSize: 11, marginTop: 4 }}>Histéresis: tras una bajada, requiere 1 sesión de consolidación antes de volver a subir.</div>
 
             <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>AISLAMIENTOS</strong></div>
             <div>Todas al techo en UNA sesión → +incremento</div>
