@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { getExerciseHistory, DEFAULT_INCREMENT } from '../lib/workouts';
 import { generateSuggestion, calcBackoffWeight, EFFORT_LEVELS, detectDeload } from '../lib/progression';
-import { useDragInput } from '../lib/useDragInput';
 import { saveActiveSession, loadActiveSession, clearActiveSession } from '../lib/storage';
+import { useTapInput } from '../lib/useTapInput';
 
 // ─── BEEP ─────────────────────────────────────────────────────────────────
 
@@ -197,27 +197,66 @@ function SuggestionBox({ suggestion, exDef }) {
 
 // ─── EXERCISE CARD ────────────────────────────────────────────────────────
 
+function TapInput({ value, fallback, onChange, step, min, inputMode, editable }) {
+  const { onTouchStart, onTouchMove, onTouchEnd, keyboardOpen, closeKeyboard } = useTapInput({
+    value, fallback, onChange, step, min,
+  });
+
+  const hasValue = value !== '';
+  const displayText = hasValue ? value : (fallback ?? '—');
+  const filled = hasValue;
+  const isPlaceholder = !hasValue;
+
+  if (!editable) {
+    return (
+      <div className={`set-input ${filled ? 'filled' : ''}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ color: filled ? 'var(--accent)' : 'var(--text-faint)', fontWeight: filled ? 600 : 400 }}>
+          {displayText}
+        </span>
+      </div>
+    );
+  }
+
+  if (keyboardOpen) {
+    return (
+      <input
+        type="number"
+        className={`set-input ${filled ? 'filled' : ''}`}
+        inputMode={inputMode}
+        value={value}
+        placeholder={fallback ?? '—'}
+        autoFocus
+        onChange={e => onChange(e.target.value)}
+        onBlur={closeKeyboard}
+        style={{ touchAction: 'none' }}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`set-input ${filled ? 'filled' : ''}`}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', touchAction: 'none',
+      }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      <span style={{
+        color: filled ? 'var(--accent)' : isPlaceholder ? 'var(--text-faint)' : 'var(--text)',
+        fontWeight: filled ? 600 : 400,
+      }}>
+        {displayText}
+      </span>
+    </div>
+  );
+}
+
 function SetRow({ set, si, label, useEffort, showEffort, started, isActive, prev, loadType, onUpdate, onDone }) {
   const editable = started && isActive;
-  // Máquinas: step fino de 1kg (cada máquina tiene su propio salto, el usuario elige).
-  // Barra/mancuerna: step según el incremento estándar.
   const kgStep = loadType === 'machine' ? 1 : (DEFAULT_INCREMENT[loadType] ?? 2.5);
-
-  const kgDrag = useDragInput({
-    value: set.kg,
-    fallback: prev?.kg,
-    onChange: v => editable && onUpdate(si, 'kg', v),
-    step: kgStep,
-    min: 0,
-  });
-
-  const repsDrag = useDragInput({
-    value: set.reps,
-    fallback: prev?.reps,
-    onChange: v => editable && onUpdate(si, 'reps', v),
-    step: 1,
-    min: 1,
-  });
 
   const canComplete = set.kg !== '' && set.reps !== '' && (!showEffort || set.effort);
 
@@ -225,27 +264,23 @@ function SetRow({ set, si, label, useEffort, showEffort, started, isActive, prev
     <div className={`set-block ${set.isTopSet ? 'top-set-row' : ''} ${!started ? 'set-locked' : !isActive ? 'set-done' : 'set-active'}`}>
       <div className="set-row">
         <span className="set-num">{label}</span>
-        <input
-          type="number"
-          className={`set-input ${set.kg !== '' ? 'filled' : ''}`}
-          inputMode="decimal"
-          placeholder={prev?.kg ?? '—'}
+        <TapInput
           value={set.kg}
-          disabled={!editable}
-          onChange={e => onUpdate(si, 'kg', e.target.value)}
-          {...(editable ? kgDrag : {})}
-          style={{ touchAction: 'none' }}
+          fallback={prev?.kg}
+          onChange={v => onUpdate(si, 'kg', v)}
+          step={kgStep}
+          min={0}
+          inputMode="decimal"
+          editable={editable}
         />
-        <input
-          type="number"
-          className={`set-input ${set.reps !== '' ? 'filled' : ''}`}
-          inputMode="numeric"
-          placeholder={prev?.reps ?? '—'}
+        <TapInput
           value={set.reps}
-          disabled={!editable}
-          onChange={e => onUpdate(si, 'reps', e.target.value)}
-          {...(editable ? repsDrag : {})}
-          style={{ touchAction: 'none' }}
+          fallback={prev?.reps}
+          onChange={v => onUpdate(si, 'reps', v)}
+          step={1}
+          min={1}
+          inputMode="numeric"
+          editable={editable}
         />
         <button
           className={`set-done-btn${editable && canComplete ? ' ready' : ''}`}
