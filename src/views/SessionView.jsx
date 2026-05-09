@@ -231,7 +231,7 @@ function SuggestionBox({ suggestion, exDef }) {
 // ─── EXERCISE CARD ────────────────────────────────────────────────────────
 
 function TapInput({ value, fallback, onChange, step, min, inputMode, editable }) {
-  const { onTouchStart, onTouchMove, onTouchEnd, keyboardOpen, closeKeyboard } = useTapInput({
+  const { onTouchStart, onTouchMove, onTouchEnd, onClick, onWheel, keyboardOpen, closeKeyboard } = useTapInput({
     value, fallback, onChange, step, min,
   });
 
@@ -276,6 +276,8 @@ function TapInput({ value, fallback, onChange, step, min, inputMode, editable })
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
+      onClick={onClick}
+      onWheel={onWheel}
     >
       <span style={{
         color: filled ? 'var(--accent)' : isPlaceholder ? 'var(--text-faint)' : 'var(--text)',

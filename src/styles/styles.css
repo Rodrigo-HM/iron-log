@@ -235,6 +235,31 @@ button { font-family: inherit; }
 
 .workout-card.next .workout-num { color: var(--accent); }
 
+.workout-card.in-progress {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--surface) 0%, rgba(255, 69, 0, 0.12) 100%);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.workout-card.in-progress .workout-num { color: var(--accent); }
+.workout-card.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.workout-card.disabled:active { transform: none; }
+
+.in-progress-label {
+  color: var(--accent) !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.in-progress-label::first-letter {
+  animation: pulse-dot 1.4s infinite;
+}
+
 .workout-info { flex: 1; min-width: 0; }
 .workout-name {
   font-weight: 700;

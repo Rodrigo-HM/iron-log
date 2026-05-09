@@ -18,7 +18,8 @@ import {
   setSetting,
   getAllRoutines,
   saveAppCache,
-  loadAppCache
+  loadAppCache,
+  loadActiveSession
 } from './lib/storage';
 import { getNextWorkoutDayIndex } from './lib/workouts';
 import './styles/styles.css';
@@ -141,8 +142,13 @@ export default function App() {
   const handleTabChange = (newTab) => {
     let dayIdx = null;
     if (newTab === 'session') {
-      const totalDays = activeRoutine?.days?.length ?? 0;
-      dayIdx = getNextWorkoutDayIndex(sessions, totalDays);
+      const active = loadActiveSession();
+      if (active?.session?.exercises?.length && active.dayIndex != null) {
+        dayIdx = active.dayIndex;
+      } else {
+        const totalDays = activeRoutine?.days?.length ?? 0;
+        dayIdx = getNextWorkoutDayIndex(sessions, totalDays);
+      }
       setSessionDayIndex(dayIdx);
       localStorage.setItem('iron_log_session_day', String(dayIdx));
     } else {
@@ -154,6 +160,11 @@ export default function App() {
   };
 
   const handleOpenWorkout = (dayIndex) => {
+    const active = loadActiveSession();
+    if (active?.session?.exercises?.length && active.dayIndex != null && active.dayIndex !== dayIndex) {
+      showToast('Ya tienes un entreno en curso');
+      return;
+    }
     setSessionDayIndex(dayIndex);
     setTab('session');
     localStorage.setItem('iron_log_tab', 'session');
@@ -226,13 +237,19 @@ export default function App() {
       />
     );
   } else if (tab === 'home') {
+    const activeSession = loadActiveSession();
+    const activeSessionDayIndex = activeSession?.session?.exercises?.length
+      ? activeSession.dayIndex
+      : null;
     currentView = (
       <HomeView
         sessions={sessions}
         settings={settings}
         activeRoutine={activeRoutine}
+        activeSessionDayIndex={activeSessionDayIndex}
         onOpenWorkout={handleOpenWorkout}
         onGoToRoutines={() => setTab('routines')}
+        showToast={showToast}
       />
     );
   } else if (tab === 'history') {

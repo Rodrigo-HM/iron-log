@@ -42,20 +42,26 @@ function WeeklyProgress({ sessions, weeklyGoal }) {
   );
 }
 
-function WorkoutCard({ day, dayIndex, isNext, lastDate, onClick }) {
+function WorkoutCard({ day, dayIndex, isNext, isInProgress, isDisabled, lastDate, onClick }) {
   return (
-    <div className={`workout-card ${isNext ? 'next' : ''}`} onClick={onClick}>
+    <div
+      className={`workout-card ${isNext ? 'next' : ''} ${isInProgress ? 'in-progress' : ''} ${isDisabled ? 'disabled' : ''}`}
+      onClick={onClick}
+    >
       <div className="workout-num">{dayIndex + 1}</div>
       <div className="workout-info">
         <div className="workout-name">{day.name}</div>
         <div className="workout-focus">{day.focus}</div>
-        {isNext && (
+        {isInProgress && (
+          <div className="workout-last in-progress-label">● Entreno en curso</div>
+        )}
+        {isNext && !isInProgress && (
           <div className="workout-last">
             {lastDate ? `Última vez: ${formatDate(lastDate)}` : 'Sin registros previos'}
           </div>
         )}
       </div>
-      {!isNext && lastDate && (
+      {!isNext && !isInProgress && lastDate && (
         <div className="exercise-list-stat" style={{ marginRight: 8 }}>
           {formatDate(lastDate)}
         </div>
@@ -65,7 +71,7 @@ function WorkoutCard({ day, dayIndex, isNext, lastDate, onClick }) {
   );
 }
 
-export function HomeView({ sessions, settings, activeRoutine, onOpenWorkout, onGoToRoutines }) {
+export function HomeView({ sessions, settings, activeRoutine, activeSessionDayIndex, onOpenWorkout, onGoToRoutines }) {
   if (!activeRoutine) {
     return (
       <div className="page">
@@ -83,8 +89,11 @@ export function HomeView({ sessions, settings, activeRoutine, onOpenWorkout, onG
   }
 
   const days = activeRoutine.days ?? [];
-  const nextDayIndex = getNextWorkoutDayIndex(sessions, days.length);
-  const others = days.map((_, i) => i).filter(i => i !== nextDayIndex);
+  const hasActiveSession = activeSessionDayIndex != null && activeSessionDayIndex < days.length;
+  const featuredDayIndex = hasActiveSession
+    ? activeSessionDayIndex
+    : getNextWorkoutDayIndex(sessions, days.length);
+  const others = days.map((_, i) => i).filter(i => i !== featuredDayIndex);
 
   return (
     <div className="page">
@@ -97,13 +106,14 @@ export function HomeView({ sessions, settings, activeRoutine, onOpenWorkout, onG
         </button>
       </div>
 
-      <div className="section-label">Siguiente entreno</div>
+      <div className="section-label">{hasActiveSession ? 'Continuar entreno' : 'Siguiente entreno'}</div>
       <WorkoutCard
-        day={days[nextDayIndex]}
-        dayIndex={nextDayIndex}
+        day={days[featuredDayIndex]}
+        dayIndex={featuredDayIndex}
         isNext={true}
-        lastDate={getLastWorkoutDate(sessions, nextDayIndex)}
-        onClick={() => onOpenWorkout(nextDayIndex)}
+        isInProgress={hasActiveSession}
+        lastDate={getLastWorkoutDate(sessions, featuredDayIndex)}
+        onClick={() => onOpenWorkout(featuredDayIndex)}
       />
 
       {others.length > 0 && (
@@ -115,6 +125,7 @@ export function HomeView({ sessions, settings, activeRoutine, onOpenWorkout, onG
               day={days[i]}
               dayIndex={i}
               isNext={false}
+              isDisabled={hasActiveSession}
               lastDate={getLastWorkoutDate(sessions, i)}
               onClick={() => onOpenWorkout(i)}
             />

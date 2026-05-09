@@ -39,6 +39,7 @@ export function useTapInput({ value, fallback, onChange, step = 1, min = 0 }) {
     const dy = touchStartY.current - e.touches[0].clientY;
     if (!isDragging.current && Math.abs(dy) >= DRAG_THRESHOLD) {
       isDragging.current = true;
+      try { navigator.vibrate?.(15); } catch {}
       if (!hasValue && hasFallback) {
         onChange(String(fallbackNum));
         touchStartValue.current = fallbackNum;
@@ -50,21 +51,25 @@ export function useTapInput({ value, fallback, onChange, step = 1, min = 0 }) {
     const steps = Math.floor(Math.abs(accPx.current) / DRAG_STEP_PX) * Math.sign(accPx.current);
     if (steps !== lastSteps.current) {
       lastSteps.current = steps;
-      try { navigator.vibrate?.(10); } catch {}
+      try { navigator.vibrate?.(15); } catch {}
     }
     const newVal = Math.max(min, Math.round((touchStartValue.current + steps * step) / step) * step);
     onChange(String(Math.round(newVal * 100) / 100));
   }, [hasValue, hasFallback, fallbackNum, onChange, step, min]);
+
+  const lastTouchEndAt = useRef(0);
 
   const onTouchEnd = useCallback((e) => {
     if (isDragging.current) {
       e.preventDefault();
       touchStartY.current = null;
       isDragging.current = false;
+      lastTouchEndAt.current = Date.now();
       return;
     }
     touchStartY.current = null;
     isDragging.current = false;
+    lastTouchEndAt.current = Date.now();
 
     const now = Date.now();
     const sinceLastTap = now - lastTapTime.current;
@@ -77,9 +82,24 @@ export function useTapInput({ value, fallback, onChange, step = 1, min = 0 }) {
     }
   }, [confirmFallback]);
 
+  const onClick = useCallback(() => {
+    // Ignorar clicks sintéticos derivados de un touch (móvil)
+    if (Date.now() - lastTouchEndAt.current < 600) return;
+    setKeyboardOpen(true);
+  }, []);
+
+  const onWheel = useCallback((e) => {
+    e.preventDefault();
+    const base = hasValue ? effectiveValue : (hasFallback ? fallbackNum : 0);
+    const current = isNaN(base) ? 0 : base;
+    const direction = e.deltaY < 0 ? 1 : -1;
+    const newVal = Math.max(min, Math.round((current + direction * step) / step) * step);
+    onChange(String(Math.round(newVal * 100) / 100));
+  }, [hasValue, effectiveValue, hasFallback, fallbackNum, onChange, step, min]);
+
   const closeKeyboard = useCallback(() => {
     setKeyboardOpen(false);
   }, []);
 
-  return { onTouchStart, onTouchMove, onTouchEnd, keyboardOpen, closeKeyboard };
+  return { onTouchStart, onTouchMove, onTouchEnd, onClick, onWheel, keyboardOpen, closeKeyboard };
 }
