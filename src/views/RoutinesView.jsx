@@ -539,13 +539,14 @@ export function RoutinesView({ routines, activeRoutineId, onRoutinesChange, show
     setSaving(true);
     try {
       await saveRoutine(draft);
-      await onRoutinesChange();
-      showToast('Rutina guardada ✓');
       setEditing(null);
+      showToast('Rutina guardada ✓');
+      onRoutinesChange();
     } catch (err) {
-      showToast('Error: ' + err.message);
+      showToast('Error al guardar: ' + err.message);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const handleActivate = async (id) => {
