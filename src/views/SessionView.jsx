@@ -75,7 +75,7 @@ function RestTimer({ seconds, onDone, hidden = false }) {
           setTimeout(() => onDoneRef.current?.(), 0);
           return 0;
         }
-        if (r <= 4) {
+        if (r === 3 || r === 2) {
           beep({ frequency: 880, duration: 180, volume: 0.35 });
         }
         return r - 1;
