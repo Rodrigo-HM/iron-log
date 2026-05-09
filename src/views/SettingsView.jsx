@@ -6,6 +6,7 @@ import { useDragInput } from '../lib/useDragInput';
 import { isLoggedIn as isSpotifyLoggedIn, logout as spotifyLogout } from '../lib/spotify';
 
 const SPOTIFY_ENABLED_KEY = 'spotify_enabled';
+const AI_ENABLED_KEY = 'ai_suggestions_enabled';
 
 function getSpotifyEnabled() {
   return localStorage.getItem(SPOTIFY_ENABLED_KEY) !== 'false';
@@ -14,6 +15,10 @@ function getSpotifyEnabled() {
 function setSpotifyEnabled(enabled) {
   localStorage.setItem(SPOTIFY_ENABLED_KEY, enabled ? 'true' : 'false');
   window.dispatchEvent(new Event('spotify-settings-change'));
+}
+
+function getAiEnabled() {
+  return localStorage.getItem(AI_ENABLED_KEY) !== 'false';
 }
 
 function DragNumberInput({ value, onChange, step = 1, min = 0, placeholder }) {
@@ -26,8 +31,41 @@ function DragNumberInput({ value, onChange, step = 1, min = 0, placeholder }) {
       value={value || ''}
       onChange={e => onChange(parseFloat(e.target.value) || 0)}
       placeholder={placeholder}
+      style={{ touchAction: 'none' }}
       {...drag}
     />
+  );
+}
+
+function ConfirmModal({ message, onConfirm, onCancel }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.6)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0 24px',
+    }}>
+      <div style={{
+        background: 'var(--card-bg)',
+        borderRadius: 16,
+        padding: '24px 20px',
+        width: '100%',
+        maxWidth: 340,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 20,
+      }}>
+        <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--text)' }}>{message}</p>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="secondary-btn" style={{ flex: 1 }} onClick={onCancel}>
+            Cancelar
+          </button>
+          <button className="secondary-btn danger-btn" style={{ flex: 1 }} onClick={onConfirm}>
+            Borrar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -41,6 +79,9 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
   const importRef = useRef(null);
   const [spotifyEnabled, setSpotifyEnabledState] = useState(getSpotifyEnabled());
   const [spotifyLogged, setSpotifyLogged] = useState(isSpotifyLoggedIn());
+  const [aiEnabled, setAiEnabledState] = useState(getAiEnabled());
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [progressionOpen, setProgressionOpen] = useState(false);
 
   useEffect(() => {
     const sync = () => {
@@ -55,6 +96,12 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
     const next = !spotifyEnabled;
     setSpotifyEnabled(next);
     setSpotifyEnabledState(next);
+  };
+
+  const toggleAiEnabled = () => {
+    const next = !aiEnabled;
+    localStorage.setItem(AI_ENABLED_KEY, next ? 'true' : 'false');
+    setAiEnabledState(next);
   };
 
   const handleSpotifyLogout = () => {
@@ -102,10 +149,9 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
   };
 
   const handleReset = async () => {
-    if (!confirm('¿Borrar TODAS las sesiones? Esto no se puede deshacer.')) return;
-    if (!confirm('Última confirmación: ¿seguro?')) return;
     await clearAllSessions();
     showToast('Datos borrados');
+    setShowResetModal(false);
     onDataChange();
   };
 
@@ -115,6 +161,14 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
 
   return (
     <div className="page">
+      {showResetModal && (
+        <ConfirmModal
+          message="Se borrarán todas las sesiones registradas. Esta acción no se puede deshacer."
+          onConfirm={handleReset}
+          onCancel={() => setShowResetModal(false)}
+        />
+      )}
+
       <input
         type="file"
         accept=".csv,.json"
@@ -187,6 +241,9 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
           </div>
         </div>
       </div>
+      <button className="primary-btn" style={{ width: '100%', marginTop: 10 }} onClick={() => showToast('Ajustes guardados ✓')}>
+        Guardar
+      </button>
 
       <div className="section-label" style={{ marginTop: 28 }}>Datos</div>
       <button className="secondary-btn" onClick={handleImport}>
@@ -195,7 +252,7 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
       <button className="secondary-btn" onClick={handleExport}>
         Exportar datos (JSON)
       </button>
-      <button className="secondary-btn danger-btn" onClick={handleReset}>
+      <button className="secondary-btn danger-btn" onClick={() => setShowResetModal(true)}>
         Borrar todos los datos
       </button>
 
@@ -215,15 +272,26 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
         </div>
       </div>
 
-      <div className="section-label" style={{ marginTop: 28 }}>Cuenta</div>
-      <button className="secondary-btn danger-btn" onClick={() => supabase.auth.signOut()}>
-        Cerrar sesión
-      </button>
-
-      <div className="section-label" style={{ marginTop: 28 }}>Música</div>
+      <div className="section-label" style={{ marginTop: 28 }}>Durante el entreno</div>
       <div className="setting-card">
         <div className="setting-row">
-          <div className="setting-label">Mostrar mini-player en sesión</div>
+          <div>
+            <div className="setting-label">Recomendaciones IA</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>Sugerencias de peso y reps en cada ejercicio</div>
+          </div>
+          <button
+            className={`toggle-switch ${aiEnabled ? 'on' : ''}`}
+            onClick={toggleAiEnabled}
+            aria-label="Activar recomendaciones IA"
+          >
+            <span className="toggle-knob" />
+          </button>
+        </div>
+        <div className="setting-row">
+          <div>
+            <div className="setting-label">Mini-player Spotify</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>Controla la música sin salir del entreno</div>
+          </div>
           <button
             className={`toggle-switch ${spotifyEnabled ? 'on' : ''}`}
             onClick={toggleSpotifyEnabled}
@@ -240,44 +308,68 @@ export function SettingsView({ sessions, settings, activeRoutine, onSettingsChan
       )}
 
       <div className="section-label" style={{ marginTop: 28 }}>Reglas de progresión</div>
-      <div className="setting-card" style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--text-dim)' }}>
-        <div style={{ marginBottom: 8 }}><strong style={{ color: 'var(--accent)' }}>ESCALA DE ESFUERZO</strong></div>
-        <div>💪 Fácil (≤7) · 😐 Regular (8) · 😤 Justo (8.5-9) · 💀 Al límite (9.5-10)</div>
-        <div style={{ fontSize: 11, marginTop: 2 }}>Aislamientos no usan esfuerzo, solo reps.</div>
+      <div
+        className="setting-card"
+        style={{ cursor: 'pointer', userSelect: 'none' }}
+        onClick={() => setProgressionOpen(o => !o)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>
+            💪 RPE ≤7 · 😐 RPE 8 · 😤 RPE 8.5–9 · 💀 RPE 9.5–10
+          </div>
+          <span style={{ fontSize: 12, color: 'var(--text-faint)', marginLeft: 8 }}>
+            {progressionOpen ? '▲' : '▼'}
+          </span>
+        </div>
 
-        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>BÁSICOS — Top set</strong></div>
-        <div>💪 (sin back off 💀) → +incremento</div>
-        <div>😐 al techo de reps (sin back off 💀) → +incremento</div>
-        <div>😐 en rango → mantener, suma +1 rep</div>
-        <div>😤 → mantener</div>
-        <div>Back off al límite con 💪/😐/😤 → mantener</div>
-        <div>💀 primera vez → mantener · 💀 dos seguidas → −incremento</div>
-        <div>Por debajo de minReps dos seguidas → −incremento</div>
+        {progressionOpen && (
+          <div style={{ fontSize: 12, lineHeight: 1.8, color: 'var(--text-dim)', marginTop: 14 }} onClick={e => e.stopPropagation()}>
+            <div style={{ marginBottom: 8 }}><strong style={{ color: 'var(--accent)' }}>ESCALA DE ESFUERZO</strong></div>
+            <div>💪 Fácil (≤7) · 😐 Regular (8) · 😤 Justo (8.5-9) · 💀 Al límite (9.5-10)</div>
+            <div style={{ fontSize: 11, marginTop: 2 }}>Aislamientos no usan esfuerzo, solo reps.</div>
 
-        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>BÁSICOS — Back offs</strong></div>
-        <div>Peso = top set × (1 − reducción según esfuerzo del top)</div>
-        <div style={{ fontSize: 11 }}>💪 8% · 😐 10% · 😤 12.5% · 💀 15%</div>
-        <div>💀 en back offs dos sesiones seguidas → −incremento</div>
+            <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>BÁSICOS — Top set</strong></div>
+            <div>💪 (sin back off 💀) → +incremento</div>
+            <div>😐 al techo de reps (sin back off 💀) → +incremento</div>
+            <div>😐 en rango → mantener, suma +1 rep</div>
+            <div>😤 → mantener</div>
+            <div>Back off al límite con 💪/😐/😤 → mantener</div>
+            <div>💀 primera vez → mantener · 💀 dos seguidas → −incremento</div>
+            <div>Por debajo de minReps dos seguidas → −incremento</div>
 
-        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>COMPUESTOS</strong></div>
-        <div>Todas al techo + ninguna serie 💀 → +incremento</div>
-        <div>Todas al techo pero alguna 💀 → mantener</div>
-        <div>Todas las series por debajo del mínimo dos seguidas → −incremento</div>
+            <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>BÁSICOS — Back offs</strong></div>
+            <div>Peso = top set × (1 − reducción según esfuerzo del top)</div>
+            <div style={{ fontSize: 11 }}>💪 8% · 😐 10% · 😤 12.5% · 💀 15%</div>
+            <div>💀 en back offs dos sesiones seguidas → −incremento</div>
 
-        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>AISLAMIENTOS</strong></div>
-        <div>Todas al techo en UNA sesión → +incremento</div>
-        <div>Por debajo del mínimo DOS sesiones → −incremento</div>
+            <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>COMPUESTOS</strong></div>
+            <div>Todas al techo + ninguna serie 💀 → +incremento</div>
+            <div>Todas al techo pero alguna 💀 → mantener</div>
+            <div>Todas las series por debajo del mínimo dos seguidas → −incremento</div>
 
-        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>INCREMENTOS</strong></div>
-        <div>Barra +2.5kg · Mancuernas +2kg · Máquina +5kg</div>
+            <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>AISLAMIENTOS</strong></div>
+            <div>Todas al techo en UNA sesión → +incremento</div>
+            <div>Por debajo del mínimo DOS sesiones → −incremento</div>
 
-        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>DELOAD</strong></div>
-        <div>💀 dos veces seguidas o peso bajando 3 sesiones → sugerencia automática</div>
-        <div style={{ fontSize: 11 }}>80% del peso habitual, −1 serie, sin llegar al fallo.</div>
+            <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>INCREMENTOS</strong></div>
+            <div>Barra +2.5kg · Mancuernas +2kg · Máquina +5kg</div>
 
-        <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>DEFINICIÓN</strong></div>
-        <div>Las mismas reglas. Se puede subir si el esfuerzo lo justifica. No aumentar series.</div>
+            <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>DELOAD</strong></div>
+            <div>💀 dos veces seguidas o peso bajando 3 sesiones → sugerencia automática</div>
+            <div style={{ fontSize: 11 }}>80% del peso habitual, −1 serie, sin llegar al fallo.</div>
+
+            <div style={{ margin: '14px 0 8px' }}><strong style={{ color: 'var(--text)' }}>DEFINICIÓN</strong></div>
+            <div>Las mismas reglas. Se puede subir si el esfuerzo lo justifica. No aumentar series.</div>
+          </div>
+        )}
       </div>
+
+      <div className="section-label" style={{ marginTop: 28 }}>Cuenta</div>
+      <button className="secondary-btn danger-btn" onClick={() => supabase.auth.signOut()}>
+        Cerrar sesión
+      </button>
+
+      <div style={{ height: 32 }} />
     </div>
   );
 }

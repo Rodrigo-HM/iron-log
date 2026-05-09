@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { useDragInput } from '../lib/useDragInput';
 import { saveRoutine, deleteRoutine, setActiveRoutine } from '../lib/storage';
 import { WORKOUTS } from '../lib/workouts';
 import { searchExercises, EXERCISE_LIBRARY } from '../lib/exercise-library';
@@ -10,6 +11,80 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+const REPS_SEQUENCE = [
+  [1,3],[2,4],[3,5],[4,6],[6,8],[8,10],[10,12],[12,15],[15,20]
+];
+
+function findRepsIndex(value) {
+  if (!value) return 4;
+  const idx = REPS_SEQUENCE.findIndex(r => r[0] === value[0] && r[1] === value[1]);
+  return idx >= 0 ? idx : 4;
+}
+
+function RepsRangeInput({ value, onChange, placeholder }) {
+  const touchStartY = useRef(null);
+  const startIdx = useRef(null);
+  const isDragging = useRef(false);
+
+  const currentIdx = findRepsIndex(value);
+  const displayValue = value ? value.join('-') : placeholder;
+
+  const onTouchStart = useCallback((e) => {
+    touchStartY.current = e.touches[0].clientY;
+    startIdx.current = currentIdx;
+    isDragging.current = false;
+  }, [currentIdx]);
+
+  const onTouchMove = useCallback((e) => {
+    if (touchStartY.current === null) return;
+    const dy = touchStartY.current - e.touches[0].clientY;
+    if (!isDragging.current && Math.abs(dy) >= 5) isDragging.current = true;
+    if (!isDragging.current) return;
+    e.preventDefault();
+    const steps = Math.round(dy / 20);
+    const newIdx = Math.max(0, Math.min(REPS_SEQUENCE.length - 1, startIdx.current + steps));
+    onChange(REPS_SEQUENCE[newIdx]);
+  }, [onChange]);
+
+  const onTouchEnd = useCallback((e) => {
+    if (isDragging.current) e.preventDefault();
+    touchStartY.current = null;
+    isDragging.current = false;
+  }, []);
+
+  return (
+    <input
+      className="setting-input"
+      style={{ width: '100%', textAlign: 'left', padding: '7px 8px', touchAction: 'none' }}
+      value={displayValue}
+      placeholder={placeholder}
+      onChange={e => {
+        const parts = e.target.value.split('-').map(Number).filter(n => !isNaN(n));
+        if (parts.length === 2) onChange(parts);
+      }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    />
+  );
+}
+
+function DragNumberInput({ value, onChange, step = 1, min = 0 }) {
+  const handleChange = useCallback((v) => onChange(parseFloat(v) || min), [onChange, min]);
+  const drag = useDragInput({ value: String(value), onChange: handleChange, step, min });
+  return (
+    <input
+      type="number"
+      className="setting-input"
+      style={{ width: '100%', touchAction: 'none' }}
+      value={value}
+      min={min}
+      onChange={e => onChange(parseFloat(e.target.value) || min)}
+      {...drag}
+    />
+  );
+}
 
 const LOAD_TYPES = [
   { value: 'bar', label: 'Barra' },
@@ -202,15 +277,12 @@ function ExerciseEditor({ ex, onChange, onRemove }) {
         </div>
         <div>
           <div className="routine-field-label">Series</div>
-          <input
-            type="number"
-            className="setting-input"
-            style={{ width: '100%' }}
+          <DragNumberInput
             value={isBasic ? (ex.backSets ?? 3) : (ex.sets ?? 3)}
             min={1}
-            onChange={e => {
-              const v = parseInt(e.target.value) || 1;
-              onChange(isBasic ? { ...ex, backSets: v } : { ...ex, sets: v });
+            onChange={v => {
+              const n = parseInt(v) || 1;
+              onChange(isBasic ? { ...ex, backSets: n } : { ...ex, sets: n });
             }}
           />
         </div>
@@ -231,55 +303,39 @@ function ExerciseEditor({ ex, onChange, onRemove }) {
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
             <div>
-              <div className="routine-field-label">Top set reps (ej: 4-6)</div>
-              <input
-                className="setting-input"
-                style={{ width: '100%', textAlign: 'left', padding: '7px 8px' }}
-                value={ex.topReps ? ex.topReps.join('-') : '4-6'}
+              <div className="routine-field-label">Top set reps</div>
+              <RepsRangeInput
+                value={ex.topReps ?? [4, 6]}
                 placeholder="4-6"
-                onChange={e => {
-                  const parts = e.target.value.split('-').map(Number).filter(n => !isNaN(n));
-                  if (parts.length === 2) onChange({ ...ex, topReps: parts });
-                }}
+                onChange={v => onChange({ ...ex, topReps: v })}
               />
             </div>
             <div>
-              <div className="routine-field-label">Back off reps (ej: 6-8)</div>
-              <input
-                className="setting-input"
-                style={{ width: '100%', textAlign: 'left', padding: '7px 8px' }}
-                value={ex.backReps ? ex.backReps.join('-') : '6-8'}
+              <div className="routine-field-label">Back off reps</div>
+              <RepsRangeInput
+                value={ex.backReps ?? [6, 8]}
                 placeholder="6-8"
-                onChange={e => {
-                  const parts = e.target.value.split('-').map(Number).filter(n => !isNaN(n));
-                  if (parts.length === 2) onChange({ ...ex, backReps: parts });
-                }}
+                onChange={v => onChange({ ...ex, backReps: v })}
               />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
             <div>
               <div className="routine-field-label">Descanso top→back (seg)</div>
-              <input
-                type="number"
-                className="setting-input"
-                style={{ width: '100%' }}
+              <DragNumberInput
                 value={ex.restTopToBackoff ?? 240}
                 min={30}
                 step={15}
-                onChange={e => onChange({ ...ex, restTopToBackoff: parseInt(e.target.value) || 240 })}
+                onChange={v => onChange({ ...ex, restTopToBackoff: parseInt(v) || 240 })}
               />
             </div>
             <div>
               <div className="routine-field-label">Descanso entre series (seg)</div>
-              <input
-                type="number"
-                className="setting-input"
-                style={{ width: '100%' }}
+              <DragNumberInput
                 value={ex.restBetweenSets ?? 150}
                 min={30}
                 step={15}
-                onChange={e => onChange({ ...ex, restBetweenSets: parseInt(e.target.value) || 150 })}
+                onChange={v => onChange({ ...ex, restBetweenSets: parseInt(v) || 150 })}
               />
             </div>
           </div>
@@ -287,28 +343,20 @@ function ExerciseEditor({ ex, onChange, onRemove }) {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
           <div>
-            <div className="routine-field-label">Reps (ej: 8-10)</div>
-            <input
-              className="setting-input"
-              style={{ width: '100%', textAlign: 'left', padding: '7px 8px' }}
-              value={ex.reps ? ex.reps.join('-') : '8-10'}
+            <div className="routine-field-label">Reps</div>
+            <RepsRangeInput
+              value={ex.reps ?? [8, 10]}
               placeholder="8-10"
-              onChange={e => {
-                const parts = e.target.value.split('-').map(Number).filter(n => !isNaN(n));
-                if (parts.length === 2) onChange({ ...ex, reps: parts });
-              }}
+              onChange={v => onChange({ ...ex, reps: v })}
             />
           </div>
           <div>
             <div className="routine-field-label">Descanso (seg)</div>
-            <input
-              type="number"
-              className="setting-input"
-              style={{ width: '100%' }}
+            <DragNumberInput
               value={ex.restBetweenSets ?? (ex.type === 'iso' ? 120 : 150)}
               min={30}
               step={15}
-              onChange={e => onChange({ ...ex, restBetweenSets: parseInt(e.target.value) || 120 })}
+              onChange={v => onChange({ ...ex, restBetweenSets: parseInt(v) || 120 })}
             />
           </div>
         </div>

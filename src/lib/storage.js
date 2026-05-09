@@ -52,7 +52,7 @@ export async function saveSession(session) {
   }
 }
 
-export async function getSession(date, workoutId) {
+async function getSession(date, workoutId) {
   const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from('sessions')
@@ -73,10 +73,6 @@ export async function getSession(date, workoutId) {
   };
 }
 
-export async function deleteSession(id) {
-  const { error } = await supabase.from('sessions').delete().eq('id', id);
-  if (error) throw error;
-}
 
 export async function bulkAddSessions(sessions) {
   const { data: { user } } = await supabase.auth.getUser();
@@ -236,4 +232,35 @@ export async function importAllData(data) {
     if (s.cutStart !== undefined) await setSetting('cut_start', s.cutStart);
     if (s.weeklyGoal !== undefined) await setSetting('weekly_goal', s.weeklyGoal);
   }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+//   ACTIVE SESSION (localStorage) — sobrevive a recargas/minimizaciones
+// ───────────────────────────────────────────────────────────────────────────
+
+const ACTIVE_SESSION_KEY = 'iron_log_active_session';
+
+export function saveActiveSession(payload) {
+  try {
+    localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify({
+      ...payload,
+      savedAt: Date.now()
+    }));
+  } catch {}
+}
+
+export function loadActiveSession() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function clearActiveSession() {
+  try {
+    localStorage.removeItem(ACTIVE_SESSION_KEY);
+  } catch {}
 }

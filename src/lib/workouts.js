@@ -300,8 +300,6 @@ export const WORKOUTS = {
   }
 };
 
-export const BASIC_EXERCISES = ['Press banca', 'Dominadas', 'Sentadilla', 'Press militar'];
-
 // Incremento por defecto según tipo de carga
 export const DEFAULT_INCREMENT = {
   bar: 2.5,
@@ -309,16 +307,7 @@ export const DEFAULT_INCREMENT = {
   machine: 5
 };
 
-// Legacy — usado en historial y export (workoutId sigue siendo el dayIndex)
-export function getNextWorkoutId(sessions) {
-  if (!sessions || sessions.length === 0) return 1;
-  const sorted = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
-  const lastId = sorted[0].workoutId;
-  if (!lastId || lastId < 1 || lastId > 5) return 1;
-  return lastId === 5 ? 1 : lastId + 1;
-}
-
-// Versión dinámica: devuelve el índice del día siguiente (0-based)
+// Devuelve el índice del día siguiente (0-based)
 export function getNextWorkoutDayIndex(sessions, totalDays) {
   if (!sessions || sessions.length === 0 || !totalDays) return 0;
   const sorted = [...sessions].sort((a, b) => b.date.localeCompare(a.date));

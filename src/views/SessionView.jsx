@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { getExerciseHistory, DEFAULT_INCREMENT } from '../lib/workouts';
 import { generateSuggestion, calcBackoffWeight, EFFORT_LEVELS, detectDeload } from '../lib/progression';
 import { useDragInput } from '../lib/useDragInput';
+import { saveActiveSession, loadActiveSession, clearActiveSession } from '../lib/storage';
 
 // ─── BEEP ─────────────────────────────────────────────────────────────────
 
@@ -265,7 +266,7 @@ function SetRow({ set, si, label, useEffort, started, isActive, prev, loadType, 
   );
 }
 
-function ExerciseCard({ exercise, exDef, history, lastSession, started, expanded, isActive, isDeloadSession, onToggle, timerSeconds, timerKey, onSetDone, onTimerDone, onUpdateSet, onAddSet, onRemoveSet }) {
+function ExerciseCard({ exercise, exDef, history, lastSession, started, expanded, isActive, isDeloadSession, aiEnabled, onToggle, timerSeconds, timerKey, onSetDone, onTimerDone, onUpdateSet, onAddSet, onRemoveSet }) {
   const [activeSet, setActiveSet] = useState(0);
 
   const suggestion = useMemo(() => {
@@ -326,7 +327,7 @@ function ExerciseCard({ exercise, exDef, history, lastSession, started, expanded
       {expanded && (
         <div className="exercise-body">
           <ExerciseTarget exDef={exDef} />
-          <SuggestionBox suggestion={suggestion} exDef={exDef} />
+          {aiEnabled && <SuggestionBox suggestion={suggestion} exDef={exDef} />}
 
 
           <div className="set-row header">
@@ -385,12 +386,49 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
   const [timerState, setTimerState] = useState({ seconds: null, key: 0, exIdx: null });
   const [expandedIdx, setExpandedIdx] = useState(0);
   const [deloadPrompt, setDeloadPrompt] = useState(null);
+  const [resumePrompt, setResumePrompt] = useState(null);
+  const [aiEnabled] = useState(() => localStorage.getItem('ai_suggestions_enabled') !== 'false');
   const startTimeRef = useRef(null);
   const intervalRef = useRef(null);
 
   useEffect(() => {
     return () => clearInterval(intervalRef.current);
   }, []);
+
+  // Detectar sesión a medias guardada en localStorage al montar
+  useEffect(() => {
+    if (existingSession) return;
+    const saved = loadActiveSession();
+    if (!saved || saved.dayIndex !== dayIndex) return;
+    if (!saved.session?.exercises?.length) return;
+    setResumePrompt(saved);
+  }, [existingSession, dayIndex]);
+
+  const resumeSession = () => {
+    const saved = resumePrompt;
+    setResumePrompt(null);
+    if (!saved) return;
+    setSession(saved.session);
+    setExpandedIdx(saved.expandedIdx ?? 0);
+    setStarted(true);
+    const baseElapsed = saved.elapsed ?? 0;
+    startTimeRef.current = Date.now() - baseElapsed * 1000;
+    setElapsed(baseElapsed);
+    intervalRef.current = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+  };
+
+  const discardResume = () => {
+    setResumePrompt(null);
+    clearActiveSession();
+  };
+
+  // Autosave de la sesión en curso
+  useEffect(() => {
+    if (!started) return;
+    saveActiveSession({ dayIndex, session, elapsed, expandedIdx });
+  }, [started, dayIndex, session, elapsed, expandedIdx]);
 
   const deloadInfo = useMemo(() => {
     const lastSession = [...sessions].sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -523,6 +561,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
       return;
     }
     filtered.durationSeconds = started ? elapsed : null;
+    clearActiveSession();
     onSave(filtered);
   };
 
@@ -542,10 +581,25 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
         </div>
       )}
 
-      {!started && (
+      {!started && !resumePrompt && (
         <button className="start-session-btn" onClick={handleStart}>
           Iniciar sesión
         </button>
+      )}
+
+      {resumePrompt && (
+        <div className="deload-modal-overlay">
+          <div className="deload-modal" onClick={e => e.stopPropagation()}>
+            <div className="deload-modal-title">Sesión a medias</div>
+            <div className="deload-modal-text">
+              Tienes una sesión sin terminar de <strong>{day.name}</strong>. ¿Quieres retomarla o empezar de cero?
+            </div>
+            <div className="deload-modal-buttons">
+              <button className="secondary-btn" onClick={discardResume}>Empezar de cero</button>
+              <button className="primary-btn" onClick={resumeSession}>Retomar</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {deloadPrompt && (
@@ -579,6 +633,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
             lastSession={lastSession}
             started={started}
             isDeloadSession={!!session.isDeload}
+            aiEnabled={aiEnabled}
             expanded={expandedIdx === i}
             isActive={timerState.exIdx === i || (timerState.exIdx === null && expandedIdx === i)}
             onToggle={() => setExpandedIdx(expandedIdx === i ? -1 : i)}
