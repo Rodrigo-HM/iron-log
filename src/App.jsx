@@ -156,7 +156,23 @@ export default function App() {
   };
 
   if (user === undefined || loading) {
-    return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Cargando...</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)', gap: 20 }}>
+        <svg width="48" height="48" viewBox="0 0 48 48">
+          <circle cx="24" cy="24" r="20" fill="none" stroke="var(--border)" strokeWidth="4" />
+          <circle
+            cx="24" cy="24" r="20"
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="4"
+            strokeDasharray="30 96"
+            strokeLinecap="round"
+            style={{ transformOrigin: '24px 24px', animation: 'spin 0.9s linear infinite' }}
+          />
+        </svg>
+        <span style={{ color: 'var(--text-faint)', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, letterSpacing: '0.05em' }}>IRON LOG</span>
+      </div>
+    );
   }
 
   if (user === null) return <LoginView />;
