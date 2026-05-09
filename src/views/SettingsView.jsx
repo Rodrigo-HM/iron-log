@@ -39,30 +39,12 @@ function DragNumberInput({ value, onChange, step = 1, min = 0, placeholder }) {
 
 function ConfirmModal({ message, onConfirm, onCancel }) {
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(0,0,0,0.6)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '0 24px',
-    }}>
-      <div style={{
-        background: 'var(--card-bg)',
-        borderRadius: 16,
-        padding: '24px 20px',
-        width: '100%',
-        maxWidth: 340,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 20,
-      }}>
-        <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--text)' }}>{message}</p>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="secondary-btn" style={{ flex: 1 }} onClick={onCancel}>
-            Cancelar
-          </button>
-          <button className="secondary-btn danger-btn" style={{ flex: 1 }} onClick={onConfirm}>
-            Borrar
-          </button>
+    <div className="deload-modal-overlay" onClick={onCancel}>
+      <div className="deload-modal" onClick={e => e.stopPropagation()}>
+        <div className="deload-modal-text">{message}</div>
+        <div className="deload-modal-buttons">
+          <button className="secondary-btn" onClick={onCancel}>Cancelar</button>
+          <button className="secondary-btn danger-btn" onClick={onConfirm}>Borrar</button>
         </div>
       </div>
     </div>
