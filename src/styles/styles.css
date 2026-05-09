@@ -636,6 +636,37 @@ button { font-family: inherit; }
   margin-bottom: 8px;
 }
 
+.discard-session-btn {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 13px;
+  font-family: inherit;
+  padding: 8px;
+  width: 100%;
+  cursor: pointer;
+  text-align: center;
+  margin-top: 4px;
+  margin-bottom: 16px;
+}
+
+.discard-session-btn:active { color: var(--red); }
+
+.danger-btn {
+  background: var(--red);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  flex: 1;
+}
+
+.danger-btn:active { opacity: 0.8; }
+
 .secondary-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;

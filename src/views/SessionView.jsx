@@ -428,6 +428,7 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
   const [deloadPrompt, setDeloadPrompt] = useState(null);
   const [resumePrompt, setResumePrompt] = useState(null);
   const [aiEnabled] = useState(() => localStorage.getItem('ai_suggestions_enabled') !== 'false');
+  const [discardPrompt, setDiscardPrompt] = useState(false);
   const startTimeRef = useRef(null);
   const intervalRef = useRef(null);
 
@@ -746,6 +747,27 @@ export function SessionView({ day, dayIndex, sessions, settings, existingSession
       <button className="primary-btn" onClick={handleSave} style={{ marginTop: 16 }}>
         Guardar sesión
       </button>
+
+      {started && (
+        <button className="discard-session-btn" onClick={() => setDiscardPrompt(true)}>
+          Descartar sesión
+        </button>
+      )}
+
+      {discardPrompt && (
+        <div className="deload-modal-overlay" onClick={() => setDiscardPrompt(false)}>
+          <div className="deload-modal" onClick={e => e.stopPropagation()}>
+            <div className="deload-modal-title">¿Descartar sesión?</div>
+            <div className="deload-modal-text">
+              Se perderán todos los datos de esta sesión. Esta acción no se puede deshacer.
+            </div>
+            <div className="deload-modal-buttons">
+              <button className="secondary-btn" onClick={() => setDiscardPrompt(false)}>Cancelar</button>
+              <button className="danger-btn" onClick={() => { clearActiveSession(); onBack(); }}>Descartar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
