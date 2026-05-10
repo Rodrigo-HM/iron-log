@@ -66,8 +66,27 @@ function RestTimer({ seconds, onDone, hidden = false }) {
   const endTimeRef = useRef(Date.now() + seconds * 1000);
   const [remaining, setRemaining] = useState(seconds);
   const onDoneRef = useRef(onDone);
-  const lastBeepedSecond = useRef(null);
+  const finalSequenceFiredRef = useRef(false);
+  const finalSequenceTimeoutsRef = useRef([]);
   onDoneRef.current = onDone;
+
+  const fireFinalSequence = useCallback((msUntilEnd) => {
+    if (finalSequenceFiredRef.current) return;
+    finalSequenceFiredRef.current = true;
+    const finalDelay = Math.max(0, msUntilEnd);
+    const beepSoft = () => beep({ frequency: 880, duration: 180, volume: 0.35 });
+    const beepEnd = () => beep({ frequency: 1760, duration: 300, volume: 0.4 });
+    finalSequenceTimeoutsRef.current.push(setTimeout(beepSoft, 0));
+    finalSequenceTimeoutsRef.current.push(setTimeout(beepSoft, 1000));
+    finalSequenceTimeoutsRef.current.push(setTimeout(beepEnd, finalDelay));
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      finalSequenceTimeoutsRef.current.forEach(clearTimeout);
+      finalSequenceTimeoutsRef.current = [];
+    };
+  }, []);
 
   // Programar notificación al montar y cancelarla al desmontar
   useEffect(() => {
@@ -78,23 +97,22 @@ function RestTimer({ seconds, onDone, hidden = false }) {
 
   useEffect(() => {
     const tick = () => {
-      const left = Math.round((endTimeRef.current - Date.now()) / 1000);
-      if (left <= 0) {
+      const msLeft = endTimeRef.current - Date.now();
+      const left = Math.round(msLeft / 1000);
+      if (msLeft <= 2000) {
+        fireFinalSequence(msLeft);
+      }
+      if (msLeft <= 0) {
         clearInterval(interval);
-        beep({ frequency: 1760, duration: 300, volume: 0.4 });
         setRemaining(0);
         setTimeout(() => onDoneRef.current?.(), 0);
         return;
-      }
-      if ((left === 3 || left === 2) && lastBeepedSecond.current !== left) {
-        lastBeepedSecond.current = left;
-        beep({ frequency: 880, duration: 180, volume: 0.35 });
       }
       setRemaining(left);
     };
     const interval = setInterval(tick, 500);
     return () => clearInterval(interval);
-  }, []);
+  }, [fireFinalSequence]);
 
   // Al volver de background, recalcular inmediatamente sin esperar al próximo tick
   useEffect(() => {
@@ -113,6 +131,11 @@ function RestTimer({ seconds, onDone, hidden = false }) {
     endTimeRef.current += delta * 1000;
     setRemaining(r => Math.max(0, r + delta));
     const newDelay = endTimeRef.current - Date.now();
+    if (newDelay > 2000 && finalSequenceFiredRef.current) {
+      finalSequenceTimeoutsRef.current.forEach(clearTimeout);
+      finalSequenceTimeoutsRef.current = [];
+      finalSequenceFiredRef.current = false;
+    }
     if (newDelay > 0) scheduleRestEnd(newDelay);
     else cancelRestEnd();
   };
@@ -294,9 +317,10 @@ function SetRow({ set, si, label, useEffort, showEffort, started, isActive, prev
   const kgStep = loadType === 'machine' ? 1 : (DEFAULT_INCREMENT[loadType] ?? 2.5);
 
   const canComplete = set.kg !== '' && set.reps !== '' && (!showEffort || set.effort);
+  const isCompleted = set.kg !== '' && set.reps !== '';
 
   return (
-    <div className={`set-block ${set.isTopSet ? 'top-set-row' : ''} ${!started ? 'set-locked' : !isActive ? 'set-done' : 'set-active'}`}>
+    <div className={`set-block ${set.isTopSet ? 'top-set-row' : ''} ${!started ? 'set-locked' : !isActive ? 'set-done' : 'set-active'} ${isCompleted ? 'set-completed' : ''}`}>
       <div className="set-row">
         <span className="set-num">{label}</span>
         <TapInput

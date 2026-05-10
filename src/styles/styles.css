@@ -1510,6 +1510,11 @@ input[type="checkbox"]:checked::after {
   animation: pulse-ready 1.6s ease-in-out infinite;
 }
 
+.set-block.set-completed:not(.set-active) .set-done-btn {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .set-done-btn:active {
   background: var(--surface-2);
   color: var(--green);

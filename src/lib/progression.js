@@ -334,6 +334,12 @@ export function suggestCompound(history, exDef) {
       'maintain');
   }
 
+  // Para subir hace falta histórico de esfuerzo: ≥2 sesiones (incluyendo la última)
+  // con effort registrado en al menos una serie. Sin eso, mantenemos.
+  const sessionHasEffort = (s) => s?.sets?.some(set => set.effort);
+  const effortHistoryCount = history.filter(sessionHasEffort).length;
+  const hasEnoughEffortHistory = sessionHasEffort(last) && effortHistoryCount >= 2;
+
   // Caso "demasiado fácil": esfuerzo Fácil + todas las series casi al techo → subir
   if (worstEffort === 'easy' && minOfSession >= maxReps - 1) {
     if (afterForcedDecrease) {
@@ -344,7 +350,7 @@ export function suggestCompound(history, exDef) {
       `💪 Fácil con todas las series casi al techo. ${upText(exDef)}`, 'increase');
   }
 
-  // SUBIR: set1 al techo, esfuerzo razonable, todas las series en rango
+  // SUBIR: set1 al techo + condiciones según nº de series
   if (set1Reps >= maxReps) {
     if (worstEffort === 'limit') {
       return suggest(weight, [minReps, maxReps],
@@ -354,6 +360,37 @@ export function suggestCompound(history, exDef) {
       return suggest(weight, [minReps, maxReps],
         `Set 1 al techo pero alguna serie cayó del mínimo. Mantén — el peso aprieta.`, 'maintain');
     }
+    if (!hasEnoughEffortHistory) {
+      return suggest(weight, [minReps, maxReps],
+        `Set 1 al techo, pero faltan datos de esfuerzo. Registra el esfuerzo de las series para poder recomendar subir.`, 'maintain');
+    }
+
+    const lastSetReps = allReps[allReps.length - 1];
+    const lastSetEffort = sets[allReps.length - 1]?.effort;
+    const set2Reps = allReps[1];
+    const set2Effort = sets[1]?.effort;
+
+    let canIncrease = false;
+    if (allReps.length >= 3) {
+      // 3+ series: dos primeras al techo + última con margen y no al límite
+      const firstTwoAtMax = set1Reps >= maxReps && set2Reps >= maxReps;
+      const lastWithMargin = lastSetReps >= minReps + 1 && lastSetEffort !== 'limit';
+      canIncrease = firstTwoAtMax && lastWithMargin;
+    } else if (allReps.length === 2) {
+      // 2 series: ambas al techo, o set2 = techo-1 sin esfuerzo al límite
+      const bothAtMax = set2Reps >= maxReps;
+      const set2NearTop = set2Reps >= maxReps - 1 && set2Effort !== 'limit';
+      canIncrease = bothAtMax || set2NearTop;
+    } else {
+      // 1 serie sola: set1 al techo basta
+      canIncrease = true;
+    }
+
+    if (!canIncrease) {
+      return suggest(weight, [minReps, maxReps],
+        `Set 1 al techo pero las últimas series caen. Mantén — exprime más reps antes de subir.`, 'maintain');
+    }
+
     if (afterForcedDecrease) {
       return suggest(weight, [minReps, maxReps],
         `Set 1 al techo tras una bajada. Consolida una sesión más antes de volver a subir.`, 'maintain');
