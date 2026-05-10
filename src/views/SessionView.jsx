@@ -184,19 +184,24 @@ function RestTimer({ seconds, onDone, hidden = false }) {
 
 // ─── EFFORT SELECTOR ─────────────────────────────────────────────────────
 
-function EffortSelector({ value, onChange }) {
+function EffortSelector({ value, prevValue, onChange }) {
+  const showPrev = !value && prevValue;
   return (
     <div className="effort-selector">
-      {EFFORT_LEVELS.map(lvl => (
-        <button
-          key={lvl.value}
-          className={`effort-btn ${value === lvl.value ? 'active' : ''}`}
-          onClick={() => onChange(value === lvl.value ? null : lvl.value)}
-          title={lvl.desc}
-        >
-          {lvl.label}
-        </button>
-      ))}
+      {EFFORT_LEVELS.map(lvl => {
+        const isActive = value === lvl.value;
+        const isPrev = showPrev && prevValue === lvl.value;
+        return (
+          <button
+            key={lvl.value}
+            className={`effort-btn ${isActive ? 'active' : ''} ${isPrev ? 'prev' : ''}`}
+            onClick={() => onChange(value === lvl.value ? null : lvl.value)}
+            title={lvl.desc}
+          >
+            {lvl.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -365,6 +370,7 @@ function SetRow({ set, si, label, useEffort, showEffort, started, isActive, prev
         <div className="set-effort-row">
           <EffortSelector
             value={set.effort}
+            prevValue={prev?.effort}
             onChange={val => onUpdate(si, 'effort', val)}
           />
         </div>

@@ -54,7 +54,7 @@ const EXERCISE_MAP = {
   'Machine Leg Curl (Prone)': 'Femoral tumbado',
   'Machine Calf Raise': 'Gemelo máquina',
   'Calf Press On Leg Press': 'Gemelo máquina',
-  'Machine Hip Adduction': 'Hip Thrust',
+  'Machine Hip Adduction': 'Aductor máquina',
   'Machine Hip Abduction': 'Abductor máquina',
   'Machine Leg Press': 'Prensa',
   'Barbell Deadlift': 'Peso muerto',

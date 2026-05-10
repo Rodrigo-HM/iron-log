@@ -515,14 +515,14 @@ button { font-family: inherit; }
 }
 
 .set-block.set-active .set-input {
-  padding: 13px 8px;
-  font-size: 16px;
+  padding: 17px 8px;
+  font-size: 19px;
 }
 
 .set-block.set-active .set-done-btn {
-  height: 44px;
-  width: 36px;
-  font-size: 16px;
+  height: 54px;
+  width: 44px;
+  font-size: 19px;
 }
 
 .set-row {
@@ -1446,6 +1446,12 @@ input[type="checkbox"]:checked::after {
   border-color: var(--accent);
   color: var(--text);
   background: rgba(255, 69, 0, 0.12);
+}
+
+.effort-btn.prev {
+  border-style: dashed;
+  border-color: var(--text-faint);
+  color: var(--text-faint);
 }
 
 /* Effort select en filas compactas */
