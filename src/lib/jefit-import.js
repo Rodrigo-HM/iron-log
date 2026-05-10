@@ -58,7 +58,7 @@ const EXERCISE_MAP = {
   'Machine Hip Abduction': 'Abductor máquina',
   'Machine Leg Press': 'Prensa',
   'Barbell Deadlift': 'Peso muerto',
-  'Barbell Hip Thrust': 'Hip Thrust',
+  'Barbell Hip Thrust': 'Hip Thrust máquina',
   'Barbell Romanian Deadlift': 'Peso muerto rumano',
   'Dumbbell Romanian Deadlift': 'Peso muerto rumano mancuernas',
   'Peso muerto rumano con mancuernas': 'Peso muerto rumano mancuernas',
