@@ -28,6 +28,7 @@ export async function scheduleRestEnd(delayMs) {
   reg.active.postMessage({
     type: 'SCHEDULE_REST_END',
     delayMs,
+    endAt: Date.now() + delayMs,
     title: 'Descanso terminado',
     body: '¡A por la siguiente serie!',
   });
@@ -37,4 +38,10 @@ export async function cancelRestEnd() {
   const reg = await getSWRegistration();
   if (!reg?.active) return;
   reg.active.postMessage({ type: 'CANCEL_REST_END' });
+}
+
+export async function pingRestEnd() {
+  const reg = await getSWRegistration();
+  if (!reg?.active) return;
+  reg.active.postMessage({ type: 'PING_REST_END' });
 }

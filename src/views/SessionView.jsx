@@ -3,7 +3,7 @@ import { getExerciseHistory, DEFAULT_INCREMENT } from '../lib/workouts';
 import { generateSuggestion, calcBackoffWeight, EFFORT_LEVELS, detectDeload } from '../lib/progression';
 import { saveActiveSession, loadActiveSession, clearActiveSession } from '../lib/storage';
 import { useTapInput } from '../lib/useTapInput';
-import { scheduleRestEnd, cancelRestEnd, ensureNotificationPermission } from '../lib/restNotification';
+import { scheduleRestEnd, cancelRestEnd, pingRestEnd, ensureNotificationPermission } from '../lib/restNotification';
 
 // ─── BEEP ─────────────────────────────────────────────────────────────────
 
@@ -88,10 +88,21 @@ function RestTimer({ seconds, onDone, hidden = false }) {
     };
   }, []);
 
-  // Programar notificación al montar y cancelarla al desmontar
+  // Programar notificación al montar y cancelarla al desmontar.
+  // Heartbeat: re-pingear al SW periódicamente y al volver a primer plano,
+  // para que re-arme su setTimeout si el navegador lo había suspendido.
   useEffect(() => {
     scheduleRestEnd(seconds * 1000);
-    return () => { cancelRestEnd(); };
+    const heartbeat = setInterval(() => { pingRestEnd(); }, 10000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') pingRestEnd();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(heartbeat);
+      document.removeEventListener('visibilitychange', onVisible);
+      cancelRestEnd();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

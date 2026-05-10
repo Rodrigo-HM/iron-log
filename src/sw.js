@@ -3,25 +3,48 @@ import { NavigationRoute, registerRoute } from 'workbox-routing';
 import { CacheFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
+function fireRestNotification() {
+  self.registration.showNotification(self.__restTitle || 'Descanso terminado', {
+    body: self.__restBody || '¡A por la siguiente serie!',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: 'rest-timer',
+    renotify: true,
+    requireInteraction: false,
+    vibrate: [200, 100, 200, 100, 200],
+    silent: false,
+  });
+  self.__restTimerId = null;
+  self.__restEndAt = null;
+}
+
+function armRestTimer() {
+  if (self.__restTimerId) {
+    clearTimeout(self.__restTimerId);
+    self.__restTimerId = null;
+  }
+  if (!self.__restEndAt) return;
+  const delay = Math.max(0, self.__restEndAt - Date.now());
+  if (delay === 0) {
+    fireRestNotification();
+    return;
+  }
+  self.__restTimerId = setTimeout(fireRestNotification, delay);
+}
+
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 
   if (event.data?.type === 'SCHEDULE_REST_END') {
-    const { delayMs, title, body } = event.data;
-    if (self.__restTimerId) clearTimeout(self.__restTimerId);
-    self.__restTimerId = setTimeout(() => {
-      self.registration.showNotification(title || 'Descanso terminado', {
-        body: body || '¡A por la siguiente serie!',
-        icon: '/icons/icon-192.png',
-        badge: '/icons/icon-192.png',
-        tag: 'rest-timer',
-        renotify: true,
-        requireInteraction: false,
-        vibrate: [200, 100, 200, 100, 200],
-        silent: false,
-      });
-      self.__restTimerId = null;
-    }, Math.max(0, delayMs));
+    const { delayMs, endAt, title, body } = event.data;
+    self.__restEndAt = endAt || (Date.now() + Math.max(0, delayMs || 0));
+    self.__restTitle = title;
+    self.__restBody = body;
+    armRestTimer();
+  }
+
+  if (event.data?.type === 'PING_REST_END') {
+    armRestTimer();
   }
 
   if (event.data?.type === 'CANCEL_REST_END') {
@@ -29,6 +52,7 @@ self.addEventListener('message', (event) => {
       clearTimeout(self.__restTimerId);
       self.__restTimerId = null;
     }
+    self.__restEndAt = null;
   }
 });
 
